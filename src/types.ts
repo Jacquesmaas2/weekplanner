@@ -12,6 +12,7 @@ export interface Person {
   id: string
   name: string
   theme: PersonTheme
+  photoUrl?: string
 }
 
 export interface Task {

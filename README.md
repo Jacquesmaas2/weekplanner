@@ -7,6 +7,8 @@ Een touchvriendelijke webapplicatie waarmee Ruben en Lise hun dagelijkse taken p
 - Touch-first planner met grote knoppen, weeknavigatie en duidelijke voortgang per persoon.
 - Taken aan/uit te zetten per week, plus beheer van personen en taaklijsten voor ouders.
 - Statistieken tonen voltooide taken per persoon en per taak (week/maand/jaar) voor beloningsbeslissingen.
+- Dag- en weekbeoordelingen met vrolijke mascottes en een highlight voor “vandaag” op basis van het aantal vinkjes.
+- Iedereen krijgt een eigen foto (uploadbaar in het beheerscherm) die terugkomt op het inlogscherm en in de planner.
 - Alle gegevens worden lokaal opgeslagen (browser `localStorage`), zodat voortgang behouden blijft zonder server.
 - Inlogscherm voor kinderen (alleen eigen overzicht) en ouders (planner, statistieken en beheer).
 
@@ -52,7 +54,7 @@ De ontwikkelserver draait standaard op `http://localhost:5173/`.
 
 - Export/import van data voor back-ups.
 - Extra beloningslogica of notificaties.
-- Synchronisatie met een backend of gedeeld huishouden..
+- Synchronisatie met een backend of gedeeld huishouden.
 
 ## Inloggen
 

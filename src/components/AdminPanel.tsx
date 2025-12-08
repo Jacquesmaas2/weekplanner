@@ -10,6 +10,7 @@ type AdminPanelProps = {
   adminCode: string
   onAddPerson: (name: string) => void
   onRemovePerson: (id: string) => void
+  onUpdatePersonPhoto: (id: string, photoUrl: string | null) => void
   onAddTask: (name: string) => void
   onToggleTaskForWeek: (id: string) => void
   onRemoveTask: (id: string) => void
@@ -24,6 +25,7 @@ export function AdminPanel({
   adminCode,
   onAddPerson,
   onRemovePerson,
+  onUpdatePersonPhoto,
   onAddTask,
   onToggleTaskForWeek,
   onRemoveTask,
@@ -34,8 +36,17 @@ export function AdminPanel({
   const [newCode, setNewCode] = useState('')
   const [confirmCode, setConfirmCode] = useState('')
   const [codeMessage, setCodeMessage] = useState<string | null>(null)
+  const [photoMessage, setPhotoMessage] = useState<string | null>(null)
 
   const activeSet = new Set(activeTaskIds ?? tasks.map((task) => task.id))
+
+  const readFileAsDataUrl = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = () => reject(new Error('Kon bestand niet laden.'))
+      reader.readAsDataURL(file)
+    })
 
   const handlePersonSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -45,6 +56,27 @@ export function AdminPanel({
     }
     onAddPerson(trimmed)
     setPersonName('')
+    setPhotoMessage(null)
+  }
+
+  const handlePhotoUpload = async (fileList: FileList | null, personId: string) => {
+    if (!fileList || !fileList.length) {
+      return
+    }
+    const file = fileList[0]
+    setPhotoMessage(null)
+    if (!file.type.startsWith('image/')) {
+      setPhotoMessage('Kies een afbeeldingsbestand (jpg, png, gif).')
+      return
+    }
+    try {
+      const dataUrl = await readFileAsDataUrl(file)
+      onUpdatePersonPhoto(personId, dataUrl)
+      setPhotoMessage('Foto bijgewerkt!')
+    } catch (error) {
+      console.error(error)
+      setPhotoMessage('Het uploaden is mislukt. Probeer een ander bestand.')
+    }
   }
 
   const handleTaskSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -99,9 +131,40 @@ export function AdminPanel({
           {persons.map((person) => (
             <li key={person.id}>
               <span className={`admin-person theme-${person.theme}`}>
-                <span className="admin-person__dot" />
+                <span className="admin-person__avatar" aria-hidden="true">
+                  {person.photoUrl ? (
+                    <img src={person.photoUrl} alt="" />
+                  ) : (
+                    <span className="admin-person__dot" />
+                  )}
+                </span>
                 {person.name}
               </span>
+              <div className="admin-person__controls">
+                <label className="admin-upload">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => {
+                      void handlePhotoUpload(event.target.files, person.id)
+                      event.target.value = ''
+                    }}
+                  />
+                  Kies foto
+                </label>
+                {person.photoUrl && (
+                  <button
+                    type="button"
+                    className="admin-secondary"
+                    onClick={() => {
+                      onUpdatePersonPhoto(person.id, null)
+                      setPhotoMessage('Foto verwijderd.')
+                    }}
+                  >
+                    Verwijder foto
+                  </button>
+                )}
+              </div>
               <button
                 type="button"
                 className="admin-remove"
@@ -112,6 +175,11 @@ export function AdminPanel({
             </li>
           ))}
         </ul>
+        {photoMessage && (
+          <p className="admin-message admin-message--inline" role="status">
+            {photoMessage}
+          </p>
+        )}
       </section>
       <section className="admin-section">
         <div className="admin-section__header">

@@ -1,15 +1,17 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import './App.css'
 import { AdminPanel } from './components/AdminPanel'
 import { LoginScreen } from './components/LoginScreen'
 import { PlannerGrid } from './components/PlannerGrid'
 import { StatsPanel } from './components/StatsPanel'
+import { HighlightsPanel, type DaySummary, type WeeklySummary } from './components/HighlightsPanel'
 import { buildDefaultPersons, buildDefaultTasks } from './data/defaults'
 import { useLocalStorageState } from './hooks/useLocalStorage'
 import type { CompletionMap, Person, PersonTheme, Session, Task } from './types'
 import { createCompletionKey, mapToEntries, parseCompletionKey } from './utils/completion'
 import {
   addDays,
+  formatDayLabel,
   formatWeekRange,
   getWeekDays,
   startOfWeek,
@@ -120,6 +122,58 @@ function App() {
     return persons
   }, [isAdmin, persons, session, currentPerson])
 
+  const isCompleted = useCallback(
+    (personId: string, taskId: string, isoDate: string) => {
+      const key = createCompletionKey(personId, taskId, isoDate)
+      return Boolean(completions[key])
+    },
+    [completions],
+  )
+
+  const todayIso = toISODate(new Date())
+
+  const dailySummaries = useMemo<DaySummary[]>(() => {
+    const totalBase = visibleTasks.length * viewPersons.length
+    return weekDays.map((day) => {
+      const isoDate = toISODate(day)
+      let completedCount = 0
+      if (totalBase > 0) {
+        viewPersons.forEach((person) => {
+          visibleTasks.forEach((task) => {
+            if (isCompleted(person.id, task.id, isoDate)) {
+              completedCount += 1
+            }
+          })
+        })
+      }
+      const rate = totalBase > 0 ? completedCount / totalBase : 0
+      return {
+        isoDate,
+        label: formatDayLabel(day),
+        completed: completedCount,
+        total: totalBase,
+        rate,
+        isToday: isoDate === todayIso,
+      }
+    })
+  }, [weekDays, visibleTasks, viewPersons, isCompleted, todayIso])
+
+  const weeklySummary = useMemo<WeeklySummary>(() => {
+    const aggregate = dailySummaries.reduce(
+      (acc, day) => {
+        acc.completed += day.completed
+        acc.total += day.total
+        return acc
+      },
+      { completed: 0, total: 0 },
+    )
+    return {
+      completed: aggregate.completed,
+      total: aggregate.total,
+      rate: aggregate.total > 0 ? aggregate.completed / aggregate.total : 0,
+    }
+  }, [dailySummaries])
+
   if (!session) {
     return (
       <LoginScreen
@@ -129,11 +183,6 @@ function App() {
         adminError={adminLoginError}
       />
     )
-  }
-
-  const isCompleted = (personId: string, taskId: string, isoDate: string) => {
-    const key = createCompletionKey(personId, taskId, isoDate)
-    return Boolean(completions[key])
   }
 
   const toggleCompletion = (personId: string, taskId: string, isoDate: string) => {
@@ -156,6 +205,7 @@ function App() {
         id: generateId(),
         name,
         theme: pickTheme(current),
+        photoUrl: undefined,
       },
     ])
   }
@@ -172,6 +222,19 @@ function App() {
       })
       return next
     })
+  }
+
+  const handleUpdatePersonPhoto = (personId: string, photoUrl: string | null) => {
+    setPersons((current) =>
+      current.map((person) =>
+        person.id === personId
+          ? {
+              ...person,
+              photoUrl: photoUrl ?? undefined,
+            }
+          : person,
+      ),
+    )
   }
 
   const handleAddTask = (name: string) => {
@@ -308,13 +371,21 @@ function App() {
 
       <main>
         {(activePanel === 'planner' || !isAdmin) && (
-          <PlannerGrid
-            persons={viewPersons}
-            tasks={visibleTasks}
-            weekDays={weekDays}
-            isCompleted={isCompleted}
-            onToggle={toggleCompletion}
-          />
+          <>
+            <HighlightsPanel
+              audiencePersons={viewPersons}
+              dailySummaries={dailySummaries}
+              weeklySummary={weeklySummary}
+            />
+            <PlannerGrid
+              persons={viewPersons}
+              tasks={visibleTasks}
+              weekDays={weekDays}
+              todayIso={todayIso}
+              isCompleted={isCompleted}
+              onToggle={toggleCompletion}
+            />
+          </>
         )}
         {isAdmin && activePanel === 'stats' && (
           <StatsPanel
@@ -332,6 +403,7 @@ function App() {
             activeTaskIds={activeTaskIds}
             onAddPerson={handleAddPerson}
             onRemovePerson={handleRemovePerson}
+            onUpdatePersonPhoto={handleUpdatePersonPhoto}
             onAddTask={handleAddTask}
             onToggleTaskForWeek={handleToggleTaskForWeek}
             onRemoveTask={handleRemoveTask}

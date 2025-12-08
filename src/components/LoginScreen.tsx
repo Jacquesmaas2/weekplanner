@@ -31,7 +31,13 @@ export function LoginScreen({ persons, onSelectPerson, onAdminLogin, adminError 
             <div className="login-buttons">
               {persons.map((person) => (
                 <button type="button" key={person.id} className={`login-button theme-${person.theme}`} onClick={() => onSelectPerson(person.id)}>
-                  <span className="login-button__dot" />
+                  <span className="login-button__avatar">
+                    {person.photoUrl ? (
+                      <img src={person.photoUrl} alt="" />
+                    ) : (
+                      <span className="login-button__dot" aria-hidden="true" />
+                    )}
+                  </span>
                   <span>{person.name}</span>
                 </button>
               ))}
