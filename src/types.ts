@@ -25,3 +25,7 @@ export type CompletionMap = Record<string, boolean>
 export type Session =
   | { role: 'admin' }
   | { role: 'user'; personId: string }
+
+export interface HouseholdConfig {
+  householdId: string
+}

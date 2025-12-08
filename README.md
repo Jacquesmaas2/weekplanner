@@ -9,6 +9,7 @@ Een touchvriendelijke webapplicatie waarmee Ruben en Lise hun dagelijkse taken p
 - Statistieken tonen voltooide taken per persoon en per taak (week/maand/jaar) voor beloningsbeslissingen.
 - Dag- en weekbeoordelingen met vrolijke mascottes en een highlight voor “vandaag” op basis van het aantal vinkjes.
 - Iedereen krijgt een eigen foto (uploadbaar in het beheerscherm) die terugkomt op het inlogscherm en in de planner.
+- Optionele cloud-synchronisatie zodat alle apparaten dezelfde gegevens zien via een gedeeld gezin-ID.
 - Alle gegevens worden lokaal opgeslagen (browser `localStorage`), zodat voortgang behouden blijft zonder server.
 - Inlogscherm voor kinderen (alleen eigen overzicht) en ouders (planner, statistieken en beheer).
 
@@ -26,6 +27,7 @@ Een touchvriendelijke webapplicatie waarmee Ruben en Lise hun dagelijkse taken p
 - `weekplanner_tasks`
 - `weekplanner_completions`
 - `weekplanner_week_tasks`
+- `weekplanner_household`
 
 Verwijder deze sleutels via de browsertools om opnieuw te beginnen.
 
@@ -43,6 +45,25 @@ De ontwikkelserver draait standaard op `http://localhost:5173/`.
 - `npm run build` – productiebuild.
 - `npm run preview` – preview-server voor de build.
 - `npm run lint` – statische analyse.
+
+## Cloud synchronisatie
+
+Wil je de planner op meerdere apparaten delen? Configureer dan Supabase (gratis tier volstaat):
+
+1. Maak een nieuw Supabase-project en voeg een tabel `weekplanner_states` toe met kolommen:
+	- `id` (text, primary key)
+	- `payload` (jsonb)
+	- `updated_at` (timestamptz)
+2. Voeg in Supabase een Row Level Security policy toe die `anon` toestaat om rijen `select` en `upsert` te doen op basis van `id`.
+3. Maak in de projectinstellingen een service role en kopieer de `Project URL` en `anon public` key.
+4. Maak een `.env`-bestand naast `vite.config.ts` met:
+
+```bash
+VITE_SUPABASE_URL="https://<jouw-project>.supabase.co"
+VITE_SUPABASE_ANON_KEY="<public-anon-key>"
+```
+
+Na herstart van `npm run dev` verschijnt in het beheerscherm een veld “Gezin-ID”. Gebruik op elk apparaat dezelfde waarde (bijvoorbeeld `familie-van-dijk`). Zodra het veld is ingevuld worden personen, taken, weekconfiguraties, vinkjes en toegangscode gedeeld tussen alle gekoppelde apparaten.
 
 ## Deploy naar GitHub Pages
 

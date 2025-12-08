@@ -7,7 +7,7 @@ import { StatsPanel } from './components/StatsPanel'
 import { HighlightsPanel, type DaySummary, type WeeklySummary } from './components/HighlightsPanel'
 import { buildDefaultPersons, buildDefaultTasks } from './data/defaults'
 import { useLocalStorageState } from './hooks/useLocalStorage'
-import type { CompletionMap, Person, PersonTheme, Session, Task } from './types'
+import type { CompletionMap, HouseholdConfig, Person, PersonTheme, Session, Task } from './types'
 import { createCompletionKey, mapToEntries, parseCompletionKey } from './utils/completion'
 import {
   addDays,
@@ -17,6 +17,7 @@ import {
   startOfWeek,
   toISODate,
 } from './utils/date'
+import { useCloudSync } from './hooks/useCloudSync'
 
 type PanelKey = 'planner' | 'stats' | 'admin'
 
@@ -50,6 +51,10 @@ function App() {
   )
   const [session, setSession] = useLocalStorageState<Session | null>('weekplanner_session', null)
   const [adminCode, setAdminCode] = useLocalStorageState<string>('weekplanner_admin_code', 'ouder')
+  const [householdConfig, setHouseholdConfig] = useLocalStorageState<HouseholdConfig | null>(
+    'weekplanner_household',
+    null,
+  )
   const [adminLoginError, setAdminLoginError] = useState<string | undefined>()
 
   useEffect(() => {
@@ -174,6 +179,28 @@ function App() {
     }
   }, [dailySummaries])
 
+  const snapshot = useMemo(
+    () => ({ persons, tasks, completions, weekTaskConfig, adminCode }),
+    [persons, tasks, completions, weekTaskConfig, adminCode],
+  )
+
+  const applyRemoteSnapshot = useCallback(
+    (remote: { persons: Person[]; tasks: Task[]; completions: CompletionMap; weekTaskConfig: Record<string, string[]>; adminCode: string }) => {
+      setPersons(remote.persons)
+      setTasks(remote.tasks)
+      setCompletions(remote.completions)
+      setWeekTaskConfig(remote.weekTaskConfig)
+      setAdminCode(remote.adminCode)
+    },
+    [setPersons, setTasks, setCompletions, setWeekTaskConfig, setAdminCode],
+  )
+
+  const householdId = householdConfig?.householdId ?? null
+
+  const cloudState = useCloudSync(householdId, snapshot, applyRemoteSnapshot)
+
+  const cloudError = cloudState.status === 'error' ? cloudState.errorMessage ?? 'Cloud synchronisatie mislukt.' : null
+
   if (!session) {
     return (
       <LoginScreen
@@ -181,6 +208,8 @@ function App() {
         onSelectPerson={handleSelectPersonForLogin}
         onAdminLogin={handleAdminLogin}
         adminError={adminLoginError}
+        cloudStatus={cloudState}
+        hasHousehold={Boolean(householdId)}
       />
     )
   }
@@ -398,6 +427,7 @@ function App() {
         )}
         {isAdmin && activePanel === 'admin' && (
           <AdminPanel
+            key={householdId ?? 'none'}
             persons={persons}
             tasks={tasks}
             activeTaskIds={activeTaskIds}
@@ -410,6 +440,10 @@ function App() {
             currentWeekLabel={formatWeekRange(weekStart)}
             adminCode={adminCode}
             onUpdateAdminCode={handleUpdateAdminCode}
+            householdId={householdId}
+            onUpdateHouseholdId={(id) => setHouseholdConfig(id ? { householdId: id } : null)}
+            cloudState={cloudState}
+            cloudError={cloudError}
           />
         )}
       </main>
