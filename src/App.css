@@ -329,7 +329,7 @@ main {
 
 .highlights-card {
   display: grid;
-  grid-template-columns: 110px 1fr;
+  grid-template-columns: 120px 1fr;
   align-items: center;
   gap: 1rem;
   background: rgba(255, 255, 255, 0.95);
@@ -353,6 +353,7 @@ main {
 }
 
 .highlight-figure {
+  margin: 0;
   width: 100%;
   max-width: 110px;
   aspect-ratio: 1 / 1;
@@ -374,6 +375,8 @@ main {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  align-items: flex-start;
+  text-align: left;
 }
 
 .highlights-card__body h3 {
@@ -444,6 +447,23 @@ main {
 
   .highlights-card--accent {
     grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .highlights-card {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .highlights-card__body {
+    align-items: center;
+    text-align: center;
+  }
+
+  .highlights-card__meta {
+    text-align: center;
   }
 }
 
