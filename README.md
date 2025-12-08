@@ -51,4 +51,4 @@ De ontwikkelserver draait standaard op `http://localhost:5173/`.
 
 - Export/import van data voor back-ups.
 - Extra beloningslogica of notificaties.
-- Synchronisatie met een backend of gedeeld huishouden.
+- Synchronisatie met een backend of gedeeld huishouden..
