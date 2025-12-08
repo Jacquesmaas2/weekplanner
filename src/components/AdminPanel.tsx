@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { FormEvent } from 'react'
+import type { DragEvent, FormEvent } from 'react'
 import type { Person, Task, TaskAssignment } from '../types'
 import type { CloudSyncState } from '../hooks/useCloudSync'
 import { createDefaultTaskSchedule } from '../utils/tasks'
@@ -14,6 +14,8 @@ type AdminPanelProps = {
   onRemovePerson: (id: string) => void
   onUpdatePersonPhoto: (id: string, photoUrl: string | null) => void
   onAddTask: (name: string) => void
+  onSortTasks: () => void
+  onReorderTasks: (orderedIds: string[]) => void
   onUpdateTaskSchedule: (taskId: string, schedule: Task['schedule']) => void
   onToggleTaskForWeek: (id: string) => void
   onRemoveTask: (id: string) => void
@@ -34,6 +36,8 @@ export function AdminPanel({
   onRemovePerson,
   onUpdatePersonPhoto,
   onAddTask,
+  onSortTasks,
+  onReorderTasks,
   onUpdateTaskSchedule,
   onToggleTaskForWeek,
   onRemoveTask,
@@ -51,11 +55,102 @@ export function AdminPanel({
   const [photoMessage, setPhotoMessage] = useState<string | null>(null)
   const [householdInput, setHouseholdInput] = useState(householdId ?? '')
   const [householdMessage, setHouseholdMessage] = useState<string | null>(null)
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
+  const [dragOverTaskId, setDragOverTaskId] = useState<string | null>(null)
   const cloudDisabled = cloudState.status === 'disabled'
 
   const activeSet = new Set(activeTaskIds ?? tasks.map((task) => task.id))
 
   const getSchedule = (task: Task) => task.schedule ?? createDefaultTaskSchedule(persons)
+
+  const computeReorderedTaskIds = (sourceId: string, targetId: string | null) => {
+    const ids = tasks.map((task) => task.id)
+    if (!ids.includes(sourceId)) {
+      return ids
+    }
+
+    const withoutSource = ids.filter((id) => id !== sourceId)
+    if (!targetId) {
+      withoutSource.push(sourceId)
+      return withoutSource
+    }
+
+    const insertIndex = withoutSource.indexOf(targetId)
+    if (insertIndex === -1) {
+      withoutSource.push(sourceId)
+      return withoutSource
+    }
+
+    withoutSource.splice(insertIndex, 0, sourceId)
+    return withoutSource
+  }
+
+  const finishDrag = () => {
+    setDraggedTaskId(null)
+    setDragOverTaskId(null)
+  }
+
+  const handleDragStart = (taskId: string, event: DragEvent<HTMLButtonElement>) => {
+    setDraggedTaskId(taskId)
+    setDragOverTaskId(null)
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', taskId)
+  }
+
+  const handleTaskDragOver = (taskId: string, event: DragEvent<HTMLLIElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'move'
+    }
+    if (!draggedTaskId || draggedTaskId === taskId) {
+      return
+    }
+    setDragOverTaskId((current) => (current === taskId ? current : taskId))
+  }
+
+  const handleTaskDragLeave = (taskId: string, event: DragEvent<HTMLLIElement>) => {
+    event.stopPropagation()
+    const nextTarget = event.relatedTarget as Node | null
+    if (!nextTarget || !event.currentTarget.contains(nextTarget)) {
+      setDragOverTaskId((current) => (current === taskId ? null : current))
+    }
+  }
+
+  const handleDropOnTask = (taskId: string, event: DragEvent<HTMLLIElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+    if (!draggedTaskId || draggedTaskId === taskId) {
+      finishDrag()
+      return
+    }
+    const updatedIds = computeReorderedTaskIds(draggedTaskId, taskId)
+    onReorderTasks(updatedIds)
+    finishDrag()
+  }
+
+  const handleListDragOver = (event: DragEvent<HTMLUListElement>) => {
+    event.preventDefault()
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'move'
+    }
+    setDragOverTaskId(null)
+  }
+
+  const handleListDrop = (event: DragEvent<HTMLUListElement>) => {
+    event.preventDefault()
+    if (!draggedTaskId) {
+      finishDrag()
+      return
+    }
+    const updatedIds = computeReorderedTaskIds(draggedTaskId, null)
+    onReorderTasks(updatedIds)
+    finishDrag()
+  }
+
+  const handleDragEnd = () => {
+    finishDrag()
+  }
 
   const applyScheduleUpdate = (
     taskId: string,
@@ -279,8 +374,13 @@ export function AdminPanel({
       </section>
       <section className="admin-section">
         <div className="admin-section__header">
-          <h3>Taken voor {currentWeekLabel}</h3>
-          <p className="admin-section__note">Schakel taken aan of uit voor deze week.</p>
+          <div>
+            <h3>Taken voor {currentWeekLabel}</h3>
+            <p className="admin-section__note">Schakel taken aan of uit voor deze week.</p>
+          </div>
+          <button type="button" className="admin-secondary" onClick={onSortTasks} disabled={tasks.length < 2}>
+            Sorteer op naam
+          </button>
         </div>
         <form className="admin-form" onSubmit={handleTaskSubmit}>
           <label htmlFor="task-name">Nieuwe taak</label>
@@ -294,7 +394,7 @@ export function AdminPanel({
             <button type="submit">Toevoegen</button>
           </div>
         </form>
-        <ul className="admin-list">
+        <ul className="admin-list" onDragOver={handleListDragOver} onDrop={handleListDrop}>
           {tasks.map((task) => {
             const schedule = getSchedule(task)
             const assignment = schedule.assignment
@@ -302,67 +402,89 @@ export function AdminPanel({
             const assignedPerson = persons.find((person) => person.id === schedule.personId)
             const startPersonValid = persons.some((person) => person.id === schedule.startPersonId)
             const startPersonId = startPersonValid ? schedule.startPersonId ?? '' : persons[0]?.id ?? ''
+            const isDragging = draggedTaskId === task.id
+            const isDropTarget = dragOverTaskId === task.id && draggedTaskId !== task.id
 
             return (
-              <li key={task.id}>
-                <div className="admin-task__row">
-                  <span>{task.name}</span>
-                  <div className="admin-task__actions">
-                    <button type="button" onClick={() => onToggleTaskForWeek(task.id)}>
-                      {activeSet.has(task.id) ? 'Actief deze week' : 'Uitgeschakeld'}
-                    </button>
-                    <button type="button" className="admin-remove" onClick={() => onRemoveTask(task.id)}>
-                      Verwijderen
-                    </button>
-                  </div>
-                </div>
-                <div className="admin-task__schedule">
-                  <label>
-                    Verdeling
-                    <select
-                      value={assignment}
-                      onChange={(event) => handleAssignmentChange(task.id, event.target.value as TaskAssignment)}
+              <li
+                key={task.id}
+                className={`admin-task-item${isDragging ? ' admin-task-item--dragging' : ''}${isDropTarget ? ' admin-task-item--drop' : ''}`}
+                onDragOver={(event) => handleTaskDragOver(task.id, event)}
+                onDragLeave={(event) => handleTaskDragLeave(task.id, event)}
+                onDrop={(event) => handleDropOnTask(task.id, event)}
+              >
+                <div className="admin-task">
+                  <div className="admin-task__row">
+                    <button
+                      type="button"
+                      className="admin-task__drag"
+                      draggable
+                      onDragStart={(event) => handleDragStart(task.id, event)}
+                      onDragEnd={handleDragEnd}
+                      aria-label={`Versleep ${task.name}`}
+                      aria-grabbed={isDragging ? 'true' : 'false'}
+                      title={`Versleep ${task.name}`}
                     >
-                      <option value="all">Voor iedereen</option>
-                      <option value="alternate">Automatisch verdelen</option>
-                      <option value="person" disabled={!hasPersons}>
-                        Specifieke persoon
-                      </option>
-                    </select>
-                  </label>
-                  {assignment === 'alternate' && hasPersons && (
+                      ::
+                    </button>
+                    <span className="admin-task__name">{task.name}</span>
+                    <div className="admin-task__actions">
+                      <button type="button" onClick={() => onToggleTaskForWeek(task.id)}>
+                        {activeSet.has(task.id) ? 'Actief deze week' : 'Uitgeschakeld'}
+                      </button>
+                      <button type="button" className="admin-remove" onClick={() => onRemoveTask(task.id)}>
+                        Verwijderen
+                      </button>
+                    </div>
+                  </div>
+                  <div className="admin-task__schedule">
                     <label>
-                      Start bij
+                      Verdeling
                       <select
-                        value={startPersonId}
-                        onChange={(event) => handleStartPersonChange(task.id, event.target.value)}
+                        value={assignment}
+                        onChange={(event) => handleAssignmentChange(task.id, event.target.value as TaskAssignment)}
                       >
-                        {persons.map((person) => (
-                          <option key={person.id} value={person.id}>
-                            {person.name}
-                          </option>
-                        ))}
+                        <option value="all">Voor iedereen</option>
+                        <option value="alternate">Automatisch verdelen</option>
+                        <option value="person" disabled={!hasPersons}>
+                          Specifieke persoon
+                        </option>
                       </select>
                     </label>
-                  )}
-                  {assignment === 'person' && hasPersons && (
-                    <label>
-                      Toegewezen aan
-                      <select
-                        value={assignedPerson ? assignedPerson.id : persons[0]?.id ?? ''}
-                        onChange={(event) => handleAssignedPersonChange(task.id, event.target.value)}
-                      >
-                        {persons.map((person) => (
-                          <option key={person.id} value={person.id}>
-                            {person.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  )}
-                  {!hasPersons && (
-                    <p className="admin-section__note">Voeg eerst personen toe om taken toe te wijzen.</p>
-                  )}
+                    {assignment === 'alternate' && hasPersons && (
+                      <label>
+                        Start bij
+                        <select
+                          value={startPersonId}
+                          onChange={(event) => handleStartPersonChange(task.id, event.target.value)}
+                        >
+                          {persons.map((person) => (
+                            <option key={person.id} value={person.id}>
+                              {person.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                    {assignment === 'person' && hasPersons && (
+                      <label>
+                        Toegewezen aan
+                        <select
+                          value={assignedPerson ? assignedPerson.id : persons[0]?.id ?? ''}
+                          onChange={(event) => handleAssignedPersonChange(task.id, event.target.value)}
+                        >
+                          {persons.map((person) => (
+                            <option key={person.id} value={person.id}>
+                              {person.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                    {!hasPersons && (
+                      <p className="admin-section__note">Voeg eerst personen toe om taken toe te wijzen.</p>
+                    )}
+                  </div>
                 </div>
               </li>
             )

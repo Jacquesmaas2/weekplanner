@@ -990,6 +990,11 @@ main {
   outline: none;
 }
 
+.admin-secondary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .admin-message--inline {
   margin: 0.5rem 0 0;
   font-weight: 600;
@@ -1008,6 +1013,7 @@ main {
 .admin-task__actions {
   display: flex;
   gap: 0.5rem;
+  margin-left: auto;
 }
 
 .admin-task__actions button {
@@ -1029,6 +1035,88 @@ main {
 .admin-remove:focus-visible {
   background: rgba(248, 113, 113, 0.32) !important;
   outline: none;
+}
+
+.admin-task-item {
+  position: relative;
+}
+
+.admin-task-item--dragging {
+  opacity: 0.6;
+}
+
+.admin-task-item--drop {
+  outline: 2px dashed rgba(37, 99, 235, 0.45);
+  outline-offset: 4px;
+}
+
+.admin-task {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.admin-task__row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.admin-task__drag {
+  border: none;
+  border-radius: 10px;
+  padding: 0.45rem 0.65rem;
+  font-weight: 700;
+  background: rgba(148, 163, 184, 0.24);
+  color: #475569;
+  cursor: grab;
+}
+
+.admin-task__drag:active {
+  cursor: grabbing;
+}
+
+.admin-task__drag:focus-visible {
+  outline: 2px solid rgba(37, 99, 235, 0.45);
+  outline-offset: 2px;
+}
+
+.admin-task__name {
+  font-weight: 600;
+  color: #0f172a;
+  flex: 1;
+}
+
+.admin-task__schedule {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding-left: 2.6rem;
+}
+
+.admin-task__schedule label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.admin-task__schedule select {
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  background: #fff;
+  color: #1e293b;
+  font-weight: 500;
+  padding: 0.45rem 0.55rem;
+  min-width: 180px;
+}
+
+.admin-task__schedule select:focus-visible {
+  outline: 2px solid rgba(37, 99, 235, 0.45);
+  outline-offset: 2px;
 }
 
 @media (max-width: 720px) {

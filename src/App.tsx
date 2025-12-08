@@ -300,6 +300,37 @@ function App() {
     })
   }
 
+  const handleSortTasks = () => {
+    setTasks((current) => {
+      const next = [...current].sort((a, b) => a.name.localeCompare(b.name, 'nl-NL', { sensitivity: 'base' }))
+      return next
+    })
+  }
+
+  const handleReorderTasks = (orderedIds: string[]) => {
+    setTasks((current) => {
+      if (!orderedIds.length) {
+        return current
+      }
+      const lookup = new Map(current.map((task) => [task.id, task]))
+      const reordered: Task[] = []
+      orderedIds.forEach((id) => {
+        const task = lookup.get(id)
+        if (task) {
+          reordered.push(task)
+          lookup.delete(id)
+        }
+      })
+      if (lookup.size === 0 && reordered.length === current.length) {
+        return reordered
+      }
+      lookup.forEach((task) => {
+        reordered.push(task)
+      })
+      return reordered
+    })
+  }
+
   const handleUpdateTaskSchedule = (taskId: string, schedule: Task['schedule']) => {
     setTasks((current) =>
       current.map((task) => {
@@ -459,6 +490,8 @@ function App() {
             onRemovePerson={handleRemovePerson}
             onUpdatePersonPhoto={handleUpdatePersonPhoto}
             onAddTask={handleAddTask}
+            onSortTasks={handleSortTasks}
+            onReorderTasks={handleReorderTasks}
             onUpdateTaskSchedule={handleUpdateTaskSchedule}
             onToggleTaskForWeek={handleToggleTaskForWeek}
             onRemoveTask={handleRemoveTask}

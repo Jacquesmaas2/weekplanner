@@ -50,8 +50,16 @@ export function PlannerGrid({ persons, allPersons, tasks, weekDays, todayIso, is
                 )
               })}
             </div>
-            {tasks.map((task) => (
-              <div className="planner-row" role="row" key={task.id}>
+            {tasks.map((task) => {
+              if (task.schedule.assignment === 'person') {
+                const assignedPersonId = task.schedule.personId
+                if (assignedPersonId && assignedPersonId !== person.id) {
+                  return null
+                }
+              }
+
+              return (
+                <div className="planner-row" role="row" key={task.id}>
                 <span className="planner-cell planner-cell--task" role="rowheader">
                   {task.name}
                   <span className="planner-task-meta">
@@ -113,8 +121,9 @@ export function PlannerGrid({ persons, allPersons, tasks, weekDays, todayIso, is
                     </button>
                   )
                 })}
-              </div>
-            ))}
+                </div>
+              )
+            })}
           </div>
         </section>
       ))}
