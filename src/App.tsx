@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 import { AdminPanel } from './components/AdminPanel'
+import { LoginScreen } from './components/LoginScreen'
 import { PlannerGrid } from './components/PlannerGrid'
 import { StatsPanel } from './components/StatsPanel'
 import { buildDefaultPersons, buildDefaultTasks } from './data/defaults'
 import { useLocalStorageState } from './hooks/useLocalStorage'
-import type { CompletionMap, Person, PersonTheme, Task } from './types'
+import type { CompletionMap, Person, PersonTheme, Session, Task } from './types'
 import { createCompletionKey, mapToEntries, parseCompletionKey } from './utils/completion'
 import {
   addDays,
@@ -45,6 +46,44 @@ function App() {
     'weekplanner_week_tasks',
     {},
   )
+  const [session, setSession] = useLocalStorageState<Session | null>('weekplanner_session', null)
+  const [adminCode, setAdminCode] = useLocalStorageState<string>('weekplanner_admin_code', 'ouder')
+  const [adminLoginError, setAdminLoginError] = useState<string | undefined>()
+
+  useEffect(() => {
+    if (session?.role === 'user') {
+      const exists = persons.some((person) => person.id === session.personId)
+      if (!exists) {
+        setSession(null)
+      }
+    }
+  }, [persons, session, setSession])
+
+  const handleSelectPersonForLogin = (personId: string) => {
+    setSession({ role: 'user', personId })
+    setActivePanel('planner')
+    setAdminLoginError(undefined)
+  }
+
+  const handleAdminLogin = (code: string) => {
+    if (code.trim() === adminCode) {
+      setSession({ role: 'admin' })
+      setActivePanel('planner')
+      setAdminLoginError(undefined)
+    } else {
+      setAdminLoginError('Onjuiste toegangscode.')
+    }
+  }
+
+  const handleLogout = () => {
+    setSession(null)
+    setAdminLoginError(undefined)
+    setActivePanel('planner')
+  }
+
+  const handleUpdateAdminCode = (code: string) => {
+    setAdminCode(code)
+  }
 
   const weekStart = useMemo(() => startOfWeek(referenceDate), [referenceDate])
   const weekDays = useMemo(() => getWeekDays(weekStart), [weekStart])
@@ -67,6 +106,30 @@ function App() {
     const set = new Set(activeTaskIds)
     return tasks.filter((task) => set.has(task.id))
   }, [tasks, activeTaskIds])
+
+  const isAdmin = session?.role === 'admin'
+  const currentPerson = session?.role === 'user' ? persons.find((person) => person.id === session.personId) : undefined
+
+  const viewPersons = useMemo(() => {
+    if (isAdmin) {
+      return persons
+    }
+    if (session?.role === 'user') {
+      return currentPerson ? [currentPerson] : []
+    }
+    return persons
+  }, [isAdmin, persons, session, currentPerson])
+
+  if (!session) {
+    return (
+      <LoginScreen
+        persons={persons}
+        onSelectPerson={handleSelectPersonForLogin}
+        onAdminLogin={handleAdminLogin}
+        adminError={adminLoginError}
+      />
+    )
+  }
 
   const isCompleted = (personId: string, taskId: string, isoDate: string) => {
     const key = createCompletionKey(personId, taskId, isoDate)
@@ -185,31 +248,45 @@ function App() {
       <header className="app-header">
         <div>
           <h1>Weekplanner</h1>
-          <p className="app-subtitle">Voor Ruben en Lise</p>
+          <p className="app-subtitle">
+            {isAdmin ? 'Ouders beheren overzicht en beloningen' : currentPerson ? `Jouw week, ${currentPerson.name}` : 'Jouw week'}
+          </p>
         </div>
-        <nav className="app-tabs" aria-label="Weergave kiezen">
-          <button
-            type="button"
-            className={activePanel === 'planner' ? 'app-tab app-tab--active' : 'app-tab'}
-            onClick={() => setActivePanel('planner')}
-          >
-            Planner
-          </button>
-          <button
-            type="button"
-            className={activePanel === 'stats' ? 'app-tab app-tab--active' : 'app-tab'}
-            onClick={() => setActivePanel('stats')}
-          >
-            Statistieken
-          </button>
-          <button
-            type="button"
-            className={activePanel === 'admin' ? 'app-tab app-tab--active' : 'app-tab'}
-            onClick={() => setActivePanel('admin')}
-          >
-            Beheer
-          </button>
-        </nav>
+        <div className="app-header__controls">
+          {isAdmin && (
+            <nav className="app-tabs" aria-label="Weergave kiezen">
+              <button
+                type="button"
+                className={activePanel === 'planner' ? 'app-tab app-tab--active' : 'app-tab'}
+                onClick={() => setActivePanel('planner')}
+              >
+                Planner
+              </button>
+              <button
+                type="button"
+                className={activePanel === 'stats' ? 'app-tab app-tab--active' : 'app-tab'}
+                onClick={() => setActivePanel('stats')}
+              >
+                Statistieken
+              </button>
+              <button
+                type="button"
+                className={activePanel === 'admin' ? 'app-tab app-tab--active' : 'app-tab'}
+                onClick={() => setActivePanel('admin')}
+              >
+                Beheer
+              </button>
+            </nav>
+          )}
+          <div className="app-account">
+            <span className="app-account__label">
+              {isAdmin ? 'Ouder' : currentPerson ? currentPerson.name : 'Gebruiker'}
+            </span>
+            <button type="button" onClick={handleLogout}>
+              Uitloggen
+            </button>
+          </div>
+        </div>
       </header>
 
       <section className="week-controls">
@@ -230,16 +307,16 @@ function App() {
       </section>
 
       <main>
-        {activePanel === 'planner' && (
+        {(activePanel === 'planner' || !isAdmin) && (
           <PlannerGrid
-            persons={persons}
+            persons={viewPersons}
             tasks={visibleTasks}
             weekDays={weekDays}
             isCompleted={isCompleted}
             onToggle={toggleCompletion}
           />
         )}
-        {activePanel === 'stats' && (
+        {isAdmin && activePanel === 'stats' && (
           <StatsPanel
             persons={persons}
             tasks={tasks}
@@ -248,7 +325,7 @@ function App() {
             weekTaskConfig={weekTaskConfig}
           />
         )}
-        {activePanel === 'admin' && (
+        {isAdmin && activePanel === 'admin' && (
           <AdminPanel
             persons={persons}
             tasks={tasks}
@@ -259,6 +336,8 @@ function App() {
             onToggleTaskForWeek={handleToggleTaskForWeek}
             onRemoveTask={handleRemoveTask}
             currentWeekLabel={formatWeekRange(weekStart)}
+            adminCode={adminCode}
+            onUpdateAdminCode={handleUpdateAdminCode}
           />
         )}
       </main>

@@ -20,3 +20,7 @@ export interface Task {
 }
 
 export type CompletionMap = Record<string, boolean>
+
+export type Session =
+  | { role: 'admin' }
+  | { role: 'user'; personId: string }

@@ -7,11 +7,13 @@ type AdminPanelProps = {
   tasks: Task[]
   activeTaskIds?: string[]
   currentWeekLabel: string
+  adminCode: string
   onAddPerson: (name: string) => void
   onRemovePerson: (id: string) => void
   onAddTask: (name: string) => void
   onToggleTaskForWeek: (id: string) => void
   onRemoveTask: (id: string) => void
+  onUpdateAdminCode: (code: string) => void
 }
 
 export function AdminPanel({
@@ -19,14 +21,19 @@ export function AdminPanel({
   tasks,
   activeTaskIds,
   currentWeekLabel,
+  adminCode,
   onAddPerson,
   onRemovePerson,
   onAddTask,
   onToggleTaskForWeek,
   onRemoveTask,
+  onUpdateAdminCode,
 }: AdminPanelProps) {
   const [personName, setPersonName] = useState('')
   const [taskName, setTaskName] = useState('')
+  const [newCode, setNewCode] = useState('')
+  const [confirmCode, setConfirmCode] = useState('')
+  const [codeMessage, setCodeMessage] = useState<string | null>(null)
 
   const activeSet = new Set(activeTaskIds ?? tasks.map((task) => task.id))
 
@@ -48,6 +55,28 @@ export function AdminPanel({
     }
     onAddTask(trimmed)
     setTaskName('')
+  }
+
+  const handleAdminCodeSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const trimmed = newCode.trim()
+    const trimmedConfirm = confirmCode.trim()
+    if (!trimmed) {
+      setCodeMessage('Voer een nieuwe toegangscode in.')
+      return
+    }
+    if (trimmed !== trimmedConfirm) {
+      setCodeMessage('De bevestiging komt niet overeen.')
+      return
+    }
+    if (trimmed === adminCode) {
+      setCodeMessage('Deze code is al in gebruik.')
+      return
+    }
+    onUpdateAdminCode(trimmed)
+    setCodeMessage('Toegangscode bijgewerkt.')
+    setNewCode('')
+    setConfirmCode('')
   }
 
   return (
@@ -116,6 +145,43 @@ export function AdminPanel({
             </li>
           ))}
         </ul>
+      </section>
+      <section className="admin-section">
+        <h3>Beveiliging</h3>
+        <form className="admin-form" onSubmit={handleAdminCodeSubmit}>
+          <label htmlFor="admin-new-code">Nieuwe toegangscode</label>
+          <input
+            id="admin-new-code"
+            type="password"
+            value={newCode}
+            onChange={(event) => {
+              setNewCode(event.target.value)
+              setCodeMessage(null)
+            }}
+            placeholder="Minimaal 4 tekens"
+            minLength={4}
+            required
+          />
+          <label htmlFor="admin-confirm-code">Bevestig toegangscode</label>
+          <input
+            id="admin-confirm-code"
+            type="password"
+            value={confirmCode}
+            onChange={(event) => {
+              setConfirmCode(event.target.value)
+              setCodeMessage(null)
+            }}
+            placeholder="Herhaal de code"
+            minLength={4}
+            required
+          />
+          {codeMessage && (
+            <p className={`admin-message ${codeMessage.includes('bijgewerkt') ? 'admin-message--success' : ''}`} role="status">
+              {codeMessage}
+            </p>
+          )}
+          <button type="submit">Toegangscode opslaan</button>
+        </form>
       </section>
     </div>
   )

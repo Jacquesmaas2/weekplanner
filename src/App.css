@@ -7,6 +7,121 @@
   gap: 2rem;
 }
 
+.login-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.login-card {
+  width: min(640px, 100%);
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 24px;
+  padding: 2.5rem;
+  box-shadow: 0 24px 40px rgba(15, 23, 42, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.login-card header h1 {
+  margin: 0;
+  font-size: 2.25rem;
+  color: #1e293b;
+}
+
+.login-subtitle {
+  margin: 0.5rem 0 0;
+  color: #64748b;
+}
+
+.login-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.login-section h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #334155;
+}
+
+.login-section--divider {
+  border-top: 1px solid rgba(148, 163, 184, 0.3);
+  padding-top: 1.5rem;
+}
+
+.login-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.login-button {
+  flex: 1 1 180px;
+  border: none;
+  background: rgba(148, 163, 184, 0.18);
+  border-radius: 16px;
+  padding: 0.85rem 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-weight: 600;
+  color: #1e293b;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.login-button__dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--accent, #2563eb);
+}
+
+.login-button:hover,
+.login-button:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+  outline: none;
+}
+
+.login-empty {
+  margin: 0;
+  color: #64748b;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.login-form input {
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  padding: 0.65rem 0.9rem;
+  background: rgba(248, 250, 252, 0.9);
+}
+
+.login-form button {
+  border: none;
+  border-radius: 12px;
+  padding: 0.75rem 1.25rem;
+  font-weight: 600;
+  background: #2563eb;
+  color: #fff;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.28);
+}
+
+.login-error {
+  margin: 0;
+  color: #b91c1c;
+  font-weight: 600;
+}
+
 .theme-indigo {
   --accent: #4f46e5;
   --accent-soft: rgba(79, 70, 229, 0.16);
@@ -55,6 +170,12 @@
   align-items: center;
 }
 
+.app-header__controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
 .app-header h1 {
   margin: 0;
   font-size: 2.25rem;
@@ -96,6 +217,31 @@
   background: #2563eb;
   color: #fff;
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+}
+
+.app-account {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(37, 99, 235, 0.08);
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  border-radius: 999px;
+  padding: 0.4rem 0.75rem 0.4rem 1rem;
+}
+
+.app-account__label {
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.app-account button {
+  border: none;
+  background: #2563eb;
+  color: #fff;
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  font-weight: 600;
+  box-shadow: 0 8px 16px rgba(37, 99, 235, 0.25);
 }
 
 .week-controls {
@@ -480,6 +626,16 @@ main {
   border-radius: 12px;
   font-weight: 600;
   box-shadow: 0 10px 20px rgba(37, 99, 235, 0.25);
+}
+
+.admin-message {
+  margin: 0.25rem 0 0;
+  font-weight: 600;
+  color: #b91c1c;
+}
+
+.admin-message--success {
+  color: #15803d;
 }
 
 .admin-list {

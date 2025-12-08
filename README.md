@@ -8,6 +8,7 @@ Een touchvriendelijke webapplicatie waarmee Ruben en Lise hun dagelijkse taken p
 - Taken aan/uit te zetten per week, plus beheer van personen en taaklijsten voor ouders.
 - Statistieken tonen voltooide taken per persoon en per taak (week/maand/jaar) voor beloningsbeslissingen.
 - Alle gegevens worden lokaal opgeslagen (browser `localStorage`), zodat voortgang behouden blijft zonder server.
+- Inlogscherm voor kinderen (alleen eigen overzicht) en ouders (planner, statistieken en beheer).
 
 ## Projectstructuur
 
@@ -52,3 +53,8 @@ De ontwikkelserver draait standaard op `http://localhost:5173/`.
 - Export/import van data voor back-ups.
 - Extra beloningslogica of notificaties.
 - Synchronisatie met een backend of gedeeld huishouden..
+
+## Inloggen
+
+- Kinderen tikken simpelweg op hun naam om de planner te openen; zij zien uitsluitend hun eigen taken.
+- Ouders gebruiken de toegangscode `ouder` (aanpasbaar in het beheerscherm) en krijgen volledige toegang tot planner, statistieken en instellingen.
