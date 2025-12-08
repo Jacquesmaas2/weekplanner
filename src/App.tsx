@@ -18,6 +18,7 @@ import {
   toISODate,
 } from './utils/date'
 import { useCloudSync } from './hooks/useCloudSync'
+import { createDefaultTaskSchedule, isTaskActiveForPersonOnDay, normalizeTask, normalizeTasks } from './utils/tasks'
 
 type PanelKey = 'planner' | 'stats' | 'admin'
 
@@ -56,6 +57,14 @@ function App() {
     null,
   )
   const [adminLoginError, setAdminLoginError] = useState<string | undefined>()
+
+  useEffect(() => {
+    setTasks((current) => {
+      const normalized = normalizeTasks(current, persons)
+      const changed = normalized.some((task, index) => task !== current[index])
+      return changed ? normalized : current
+    })
+  }, [persons, setTasks])
 
   useEffect(() => {
     if (session?.role === 'user') {
@@ -138,30 +147,31 @@ function App() {
   const todayIso = toISODate(new Date())
 
   const dailySummaries = useMemo<DaySummary[]>(() => {
-    const totalBase = visibleTasks.length * viewPersons.length
-    return weekDays.map((day) => {
+    return weekDays.map((day, dayIndex) => {
       const isoDate = toISODate(day)
       let completedCount = 0
-      if (totalBase > 0) {
-        viewPersons.forEach((person) => {
-          visibleTasks.forEach((task) => {
+      let total = 0
+      viewPersons.forEach((person) => {
+        visibleTasks.forEach((task) => {
+          if (isTaskActiveForPersonOnDay(task, person.id, persons, dayIndex)) {
+            total += 1
             if (isCompleted(person.id, task.id, isoDate)) {
               completedCount += 1
             }
-          })
+          }
         })
-      }
-      const rate = totalBase > 0 ? completedCount / totalBase : 0
+      })
+      const rate = total > 0 ? completedCount / total : 0
       return {
         isoDate,
         label: formatDayLabel(day),
         completed: completedCount,
-        total: totalBase,
+        total,
         rate,
         isToday: isoDate === todayIso,
       }
     })
-  }, [weekDays, visibleTasks, viewPersons, isCompleted, todayIso])
+  }, [weekDays, visibleTasks, viewPersons, isCompleted, todayIso, persons])
 
   const weeklySummary = useMemo<WeeklySummary>(() => {
     const aggregate = dailySummaries.reduce(
@@ -187,7 +197,7 @@ function App() {
   const applyRemoteSnapshot = useCallback(
     (remote: { persons: Person[]; tasks: Task[]; completions: CompletionMap; weekTaskConfig: Record<string, string[]>; adminCode: string }) => {
       setPersons(remote.persons)
-      setTasks(remote.tasks)
+      setTasks(normalizeTasks(remote.tasks, remote.persons))
       setCompletions(remote.completions)
       setWeekTaskConfig(remote.weekTaskConfig)
       setAdminCode(remote.adminCode)
@@ -267,9 +277,10 @@ function App() {
   }
 
   const handleAddTask = (name: string) => {
-    const newTask = {
+    const newTask: Task = {
       id: generateId(),
       name,
+      schedule: createDefaultTaskSchedule(persons),
     }
 
     setTasks((current) => [...current, newTask])
@@ -287,6 +298,18 @@ function App() {
       })
       return next
     })
+  }
+
+  const handleUpdateTaskSchedule = (taskId: string, schedule: Task['schedule']) => {
+    setTasks((current) =>
+      current.map((task) => {
+        if (task.id !== taskId) {
+          return task
+        }
+        const updated = normalizeTask({ ...task, schedule }, persons)
+        return updated
+      }),
+    )
   }
 
   const handleToggleTaskForWeek = (taskId: string) => {
@@ -408,6 +431,7 @@ function App() {
             />
             <PlannerGrid
               persons={viewPersons}
+              allPersons={persons}
               tasks={visibleTasks}
               weekDays={weekDays}
               todayIso={todayIso}
@@ -435,6 +459,7 @@ function App() {
             onRemovePerson={handleRemovePerson}
             onUpdatePersonPhoto={handleUpdatePersonPhoto}
             onAddTask={handleAddTask}
+            onUpdateTaskSchedule={handleUpdateTaskSchedule}
             onToggleTaskForWeek={handleToggleTaskForWeek}
             onRemoveTask={handleRemoveTask}
             currentWeekLabel={formatWeekRange(weekStart)}

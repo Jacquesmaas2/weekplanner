@@ -15,9 +15,18 @@ export interface Person {
   photoUrl?: string
 }
 
+export type TaskAssignment = 'all' | 'alternate'
+
+export interface TaskSchedule {
+  days: boolean[]
+  assignment: TaskAssignment
+  startPersonId?: string
+}
+
 export interface Task {
   id: string
   name: string
+  schedule: TaskSchedule
 }
 
 export type CompletionMap = Record<string, boolean>

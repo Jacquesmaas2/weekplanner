@@ -6,12 +6,12 @@ import {
   endOfMonth,
   endOfYear,
   inclusiveDayCount,
-  isWithinRange,
   startOfMonth,
   startOfWeek,
   startOfYear,
   toISODate,
 } from '../utils/date'
+import { getAssignedPersonIds, getDayIndex, isTaskActiveForPersonOnDay } from '../utils/tasks'
 
 type PeriodStats = {
   label: string
@@ -81,35 +81,87 @@ const computePeriodStats = (
 
   const defaultTaskIds = tasks.map((task) => task.id)
   const taskLookup = new Map(tasks.map((task) => [task.id, task]))
+  const personIdSet = new Set(persons.map((person) => person.id))
   const dayCount = inclusiveDayCount(start, cappedEnd)
-  const entriesInRange = entries.filter((entry) => isWithinRange(entry.isoDate, start, cappedEnd))
-
   let totalPossible = 0
-  const perPersonTotals = new Map<string, number>()
+  const perPersonTotals = new Map<string, number>(persons.map((person) => [person.id, 0]))
+  const perPersonCompleted = new Map<string, number>(persons.map((person) => [person.id, 0]))
   const perTaskCompletion = new Map<string, number>()
 
-  for (let index = 0; index < dayCount; index += 1) {
-    const currentDay = addDays(start, index)
-    const weekKey = toISODate(startOfWeek(currentDay))
+  const weekCache = new Map<string, Set<string>>()
+  const isoDatesInRange = new Set<string>()
+  const getEffectiveTaskIdsForDate = (date: Date): Set<string> => {
+    const weekKey = toISODate(startOfWeek(date))
+    if (weekCache.has(weekKey)) {
+      return weekCache.get(weekKey) as Set<string>
+    }
     const configured = weekTaskConfig[weekKey]
     const activeIdsSource = configured && configured.length ? configured : defaultTaskIds
     const activeIds = activeIdsSource.filter((id) => taskLookup.has(id))
     const effectiveIds = activeIds.length ? activeIds : defaultTaskIds
-    totalPossible += effectiveIds.length * persons.length
-    persons.forEach((person) => {
-      perPersonTotals.set(person.id, (perPersonTotals.get(person.id) ?? 0) + effectiveIds.length)
+    const set = new Set(effectiveIds)
+    weekCache.set(weekKey, set)
+    return set
+  }
+
+  for (let index = 0; index < dayCount; index += 1) {
+    const currentDay = addDays(start, index)
+    const isoDate = toISODate(currentDay)
+    isoDatesInRange.add(isoDate)
+    const effectiveIds = getEffectiveTaskIdsForDate(currentDay)
+    const dayIndex = getDayIndex(currentDay)
+    effectiveIds.forEach((taskId) => {
+      const task = taskLookup.get(taskId)
+      if (!task) {
+        return
+      }
+      if (!task.schedule) {
+        return
+      }
+      const assignedIds = getAssignedPersonIds(task, persons, dayIndex)
+      assignedIds.forEach((personId) => {
+        if (!personIdSet.has(personId)) {
+          return
+        }
+        totalPossible += 1
+        perPersonTotals.set(personId, (perPersonTotals.get(personId) ?? 0) + 1)
+      })
     })
   }
 
+  const entriesInRange = entries.filter((entry) => isoDatesInRange.has(entry.isoDate))
+
+  let completed = 0
   entriesInRange.forEach((entry) => {
+    const task = taskLookup.get(entry.taskId)
+    if (!task) {
+      return
+    }
+    if (!task.schedule) {
+      return
+    }
+    if (!personIdSet.has(entry.personId)) {
+      return
+    }
+    const entryDate = new Date(entry.isoDate)
+    const effectiveIds = getEffectiveTaskIdsForDate(entryDate)
+    if (!effectiveIds.has(entry.taskId)) {
+      return
+    }
+    const dayIndex = getDayIndex(entryDate)
+    if (!isTaskActiveForPersonOnDay(task, entry.personId, persons, dayIndex)) {
+      return
+    }
+
+    completed += 1
     perTaskCompletion.set(entry.taskId, (perTaskCompletion.get(entry.taskId) ?? 0) + 1)
+    perPersonCompleted.set(entry.personId, (perPersonCompleted.get(entry.personId) ?? 0) + 1)
   })
 
-  const completed = entriesInRange.length
   const completionRate = totalPossible > 0 ? completed / totalPossible : 0
 
   const perPerson = persons.map((person) => {
-    const personCompleted = entriesInRange.filter((entry) => entry.personId === person.id).length
+    const personCompleted = perPersonCompleted.get(person.id) ?? 0
     const total = perPersonTotals.get(person.id) ?? 0
     return {
       person,
@@ -151,12 +203,9 @@ export function StatsPanel({ persons, tasks, entries, referenceDate, weekTaskCon
   return (
     <div className="stats-grid">
       {periods.map((period) => (
-        <section className="stats-card" key={period.label}>
-          <header className="stats-card__header">
+        <section key={period.label} className="stats-card">
+          <header>
             <h3>{period.label}</h3>
-            <p className="stats-card__headline">
-              {period.completed} van {period.totalPossible} taken voltooid
-            </p>
             <p className="stats-card__rate">{formatPercent(period.completionRate)} voltooid</p>
           </header>
           <div className="stats-card__body">

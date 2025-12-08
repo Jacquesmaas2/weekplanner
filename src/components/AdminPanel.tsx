@@ -13,6 +13,7 @@ type AdminPanelProps = {
   onRemovePerson: (id: string) => void
   onUpdatePersonPhoto: (id: string, photoUrl: string | null) => void
   onAddTask: (name: string) => void
+  onUpdateTaskSchedule: (taskId: string, schedule: Task['schedule']) => void
   onToggleTaskForWeek: (id: string) => void
   onRemoveTask: (id: string) => void
   onUpdateAdminCode: (code: string) => void

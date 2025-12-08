@@ -599,6 +599,14 @@ main {
   color: #1e293b;
 }
 
+.planner-task-meta {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #64748b;
+}
+
 .planner-cell--day {
   font-size: 0.85rem;
   color: #475569;
@@ -615,6 +623,18 @@ main {
   font-size: 1.75rem;
   background: rgba(148, 163, 184, 0.25);
   transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.planner-cell--inactive {
+  background: rgba(148, 163, 184, 0.1);
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.planner-cell--off-duty {
+  background: rgba(248, 250, 252, 0.9);
+  color: #94a3b8;
+  font-weight: 600;
 }
 
 .planner-toggle.planner-cell--today {

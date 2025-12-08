@@ -1,8 +1,10 @@
 import type { Person, Task } from '../types'
 import { formatDayLabel, toISODate } from '../utils/date'
+import { getAssignedPersonIds } from '../utils/tasks'
 
 type PlannerGridProps = {
   persons: Person[]
+  allPersons: Person[]
   tasks: Task[]
   weekDays: Date[]
   todayIso: string
@@ -10,7 +12,7 @@ type PlannerGridProps = {
   onToggle: (personId: string, taskId: string, isoDate: string) => void
 }
 
-export function PlannerGrid({ persons, tasks, weekDays, todayIso, isCompleted, onToggle }: PlannerGridProps) {
+export function PlannerGrid({ persons, allPersons, tasks, weekDays, todayIso, isCompleted, onToggle }: PlannerGridProps) {
   if (!tasks.length) {
     return <p className="planner-empty">Er zijn geen actieve taken voor deze week.</p>
   }
@@ -52,18 +54,49 @@ export function PlannerGrid({ persons, tasks, weekDays, todayIso, isCompleted, o
               <div className="planner-row" role="row" key={task.id}>
                 <span className="planner-cell planner-cell--task" role="rowheader">
                   {task.name}
+                  <span className="planner-task-meta">
+                    {task.schedule.assignment === 'alternate' ? 'Om de beurt' : 'Samen'}
+                  </span>
                 </span>
-                {weekDays.map((day) => {
+                {weekDays.map((day, dayIndex) => {
                   const isoDate = toISODate(day)
-                  const done = isCompleted(person.id, task.id, isoDate)
                   const isToday = isoDate === todayIso
+                  const assignedIds = getAssignedPersonIds(task, allPersons, dayIndex)
+                  const isActiveDay = assignedIds.length > 0
+                  const isAssignedToPerson = assignedIds.includes(person.id)
+                  const done = isAssignedToPerson ? isCompleted(person.id, task.id, isoDate) : false
+
+                  if (!isActiveDay) {
+                    return (
+                      <span
+                        className={`planner-cell planner-cell--inactive ${isToday ? 'planner-cell--today' : ''}`}
+                        role="gridcell"
+                        key={`${task.id}-${isoDate}`}
+                      >
+                        –
+                      </span>
+                    )
+                  }
+
+                  if (!isAssignedToPerson) {
+                    return (
+                      <span
+                        className={`planner-cell planner-cell--off-duty ${isToday ? 'planner-cell--today' : ''}`}
+                        role="gridcell"
+                        key={`${task.id}-${isoDate}`}
+                        aria-label={`${task.name} op ${formatDayLabel(day)} is niet toegewezen aan ${person.name}`}
+                      >
+                        Vrij
+                      </span>
+                    )
+                  }
+
                   return (
                     <button
                       type="button"
                       className={`planner-cell planner-toggle ${done ? 'planner-toggle--done' : ''} ${isToday ? 'planner-cell--today' : ''}`}
                       key={`${task.id}-${isoDate}`}
                       role="gridcell"
-                      aria-selected={done ? 'true' : 'false'}
                       aria-label={`${task.name} op ${formatDayLabel(day)} voor ${person.name}`}
                       onClick={() => onToggle(person.id, task.id, isoDate)}
                     >

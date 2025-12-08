@@ -75,11 +75,6 @@ export const toISODate = (value: Date): string => {
   return date.toISOString().slice(0, 10)
 }
 
-export const isWithinRange = (isoDate: string, start: Date, end: Date): boolean => {
-  const date = new Date(isoDate)
-  return date >= start && date <= end
-}
-
 export const inclusiveDayCount = (start: Date, end: Date): number => {
   const startDate = new Date(start)
   const endDate = new Date(end)
