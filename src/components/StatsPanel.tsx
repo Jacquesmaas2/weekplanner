@@ -115,9 +115,6 @@ const computePeriodStats = (
       if (!task) {
         return
       }
-      if (!task.schedule) {
-        return
-      }
       const assignedIds = getAssignedPersonIds(task, persons, dayIndex)
       assignedIds.forEach((personId) => {
         if (!personIdSet.has(personId)) {
@@ -135,9 +132,6 @@ const computePeriodStats = (
   entriesInRange.forEach((entry) => {
     const task = taskLookup.get(entry.taskId)
     if (!task) {
-      return
-    }
-    if (!task.schedule) {
       return
     }
     if (!personIdSet.has(entry.personId)) {

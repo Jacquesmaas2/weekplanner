@@ -55,7 +55,16 @@ export function PlannerGrid({ persons, allPersons, tasks, weekDays, todayIso, is
                 <span className="planner-cell planner-cell--task" role="rowheader">
                   {task.name}
                   <span className="planner-task-meta">
-                    {task.schedule.assignment === 'alternate' ? 'Om de beurt' : 'Samen'}
+                    {(() => {
+                      if (task.schedule.assignment === 'alternate') {
+                        return 'Om de beurt'
+                      }
+                      if (task.schedule.assignment === 'person') {
+                        const assigned = allPersons.find((candidate) => candidate.id === task.schedule.personId)
+                        return assigned ? `Specifiek: ${assigned.name}` : 'Specifiek'
+                      }
+                      return 'Samen'
+                    })()}
                   </span>
                 </span>
                 {weekDays.map((day, dayIndex) => {

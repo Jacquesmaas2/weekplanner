@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import type { Person, Task } from '../types'
+import type { Person, Task, TaskAssignment } from '../types'
 import type { CloudSyncState } from '../hooks/useCloudSync'
+import { createDefaultTaskSchedule } from '../utils/tasks'
 
 type AdminPanelProps = {
   persons: Person[]
@@ -33,6 +34,7 @@ export function AdminPanel({
   onRemovePerson,
   onUpdatePersonPhoto,
   onAddTask,
+  onUpdateTaskSchedule,
   onToggleTaskForWeek,
   onRemoveTask,
   onUpdateAdminCode,
@@ -52,6 +54,56 @@ export function AdminPanel({
   const cloudDisabled = cloudState.status === 'disabled'
 
   const activeSet = new Set(activeTaskIds ?? tasks.map((task) => task.id))
+
+  const getSchedule = (task: Task) => task.schedule ?? createDefaultTaskSchedule(persons)
+
+  const applyScheduleUpdate = (
+    taskId: string,
+    updater: (current: Task['schedule']) => Task['schedule'],
+  ) => {
+    const target = tasks.find((task) => task.id === taskId)
+    if (!target) {
+      return
+    }
+    const next = updater(getSchedule(target))
+    onUpdateTaskSchedule(taskId, next)
+  }
+
+  const handleAssignmentChange = (taskId: string, assignment: TaskAssignment) => {
+    applyScheduleUpdate(taskId, (current) => {
+      const next: Task['schedule'] = {
+        ...current,
+        assignment,
+      }
+
+      if (assignment === 'alternate') {
+        const validStart = persons.some((person) => person.id === next.startPersonId)
+        next.startPersonId = validStart ? next.startPersonId : persons[0]?.id
+        next.personId = undefined
+      } else if (assignment === 'person') {
+        const validPerson = persons.some((person) => person.id === next.personId)
+        next.personId = validPerson ? next.personId : persons[0]?.id
+      } else {
+        next.personId = undefined
+      }
+
+      return { ...next }
+    })
+  }
+
+  const handleStartPersonChange = (taskId: string, personId: string) => {
+    applyScheduleUpdate(taskId, (current) => ({
+      ...current,
+      startPersonId: personId,
+    }))
+  }
+
+  const handleAssignedPersonChange = (taskId: string, personId: string) => {
+    applyScheduleUpdate(taskId, (current) => ({
+      ...current,
+      personId,
+    }))
+  }
 
   const readFileAsDataUrl = (file: File) =>
     new Promise<string>((resolve, reject) => {
@@ -243,19 +295,78 @@ export function AdminPanel({
           </div>
         </form>
         <ul className="admin-list">
-          {tasks.map((task) => (
-            <li key={task.id}>
-              <span>{task.name}</span>
-              <div className="admin-task__actions">
-                <button type="button" onClick={() => onToggleTaskForWeek(task.id)}>
-                  {activeSet.has(task.id) ? 'Actief deze week' : 'Uitgeschakeld'}
-                </button>
-                <button type="button" className="admin-remove" onClick={() => onRemoveTask(task.id)}>
-                  Verwijderen
-                </button>
-              </div>
-            </li>
-          ))}
+          {tasks.map((task) => {
+            const schedule = getSchedule(task)
+            const assignment = schedule.assignment
+            const hasPersons = persons.length > 0
+            const assignedPerson = persons.find((person) => person.id === schedule.personId)
+            const startPersonValid = persons.some((person) => person.id === schedule.startPersonId)
+            const startPersonId = startPersonValid ? schedule.startPersonId ?? '' : persons[0]?.id ?? ''
+
+            return (
+              <li key={task.id}>
+                <div className="admin-task__row">
+                  <span>{task.name}</span>
+                  <div className="admin-task__actions">
+                    <button type="button" onClick={() => onToggleTaskForWeek(task.id)}>
+                      {activeSet.has(task.id) ? 'Actief deze week' : 'Uitgeschakeld'}
+                    </button>
+                    <button type="button" className="admin-remove" onClick={() => onRemoveTask(task.id)}>
+                      Verwijderen
+                    </button>
+                  </div>
+                </div>
+                <div className="admin-task__schedule">
+                  <label>
+                    Verdeling
+                    <select
+                      value={assignment}
+                      onChange={(event) => handleAssignmentChange(task.id, event.target.value as TaskAssignment)}
+                    >
+                      <option value="all">Voor iedereen</option>
+                      <option value="alternate">Automatisch verdelen</option>
+                      <option value="person" disabled={!hasPersons}>
+                        Specifieke persoon
+                      </option>
+                    </select>
+                  </label>
+                  {assignment === 'alternate' && hasPersons && (
+                    <label>
+                      Start bij
+                      <select
+                        value={startPersonId}
+                        onChange={(event) => handleStartPersonChange(task.id, event.target.value)}
+                      >
+                        {persons.map((person) => (
+                          <option key={person.id} value={person.id}>
+                            {person.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                  {assignment === 'person' && hasPersons && (
+                    <label>
+                      Toegewezen aan
+                      <select
+                        value={assignedPerson ? assignedPerson.id : persons[0]?.id ?? ''}
+                        onChange={(event) => handleAssignedPersonChange(task.id, event.target.value)}
+                      >
+                        {persons.map((person) => (
+                          <option key={person.id} value={person.id}>
+                            {person.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                  {!hasPersons && (
+                    <p className="admin-section__note">Voeg eerst personen toe om taken toe te wijzen.</p>
+                  )}
+                </div>
+              </li>
+            )
+          })}
         </ul>
       </section>
       <section className="admin-section">

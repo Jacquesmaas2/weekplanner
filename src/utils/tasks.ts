@@ -18,14 +18,16 @@ export const createDefaultTaskSchedule = (persons: Person[]): TaskSchedule => ({
   days: Array.from({ length: 7 }, () => true),
   assignment: 'all',
   startPersonId: persons[0]?.id,
+  personId: persons[0]?.id,
 })
 
 export const normalizeTask = (task: Task, persons: Person[]): Task => {
   const schedule = task.schedule ?? createDefaultTaskSchedule(persons)
   const normalized: TaskSchedule = {
     days: ensureDays(schedule.days),
-    assignment: schedule.assignment === 'alternate' ? 'alternate' : 'all',
+    assignment: schedule.assignment === 'alternate' || schedule.assignment === 'person' ? schedule.assignment : 'all',
     startPersonId: schedule.startPersonId,
+    personId: schedule.personId,
   }
 
   if (normalized.assignment === 'alternate') {
@@ -33,8 +35,18 @@ export const normalizeTask = (task: Task, persons: Person[]): Task => {
     if (!validStart) {
       normalized.startPersonId = persons[0]?.id
     }
-  } else if (!normalized.startPersonId) {
+    normalized.personId = undefined
+  } else if (normalized.assignment === 'person') {
+    const validPerson = persons.some((person) => person.id === normalized.personId)
+    if (!validPerson) {
+      normalized.personId = persons[0]?.id
+    }
+    if (!normalized.personId) {
+      normalized.assignment = 'all'
+    }
+  } else {
     normalized.startPersonId = persons[0]?.id
+    normalized.personId = undefined
   }
 
   const current = task.schedule
@@ -43,8 +55,9 @@ export const normalizeTask = (task: Task, persons: Person[]): Task => {
     : false
   const assignmentEqual = current?.assignment === normalized.assignment
   const startEqual = current?.startPersonId === normalized.startPersonId
+  const personEqual = current?.personId === normalized.personId
 
-  if (task.schedule && daysEqual && assignmentEqual && startEqual) {
+  if (task.schedule && daysEqual && assignmentEqual && startEqual && personEqual) {
     return task
   }
 
@@ -54,6 +67,7 @@ export const normalizeTask = (task: Task, persons: Person[]): Task => {
       days: normalized.days.slice(),
       assignment: normalized.assignment,
       startPersonId: normalized.startPersonId,
+      personId: normalized.personId,
     },
   }
 }
@@ -67,12 +81,16 @@ export const getDayIndex = (date: Date): number => {
 }
 
 export const getAssignedPersonIds = (task: Task, allPersons: Person[], dayIndex: number): string[] => {
-  const { days, assignment, startPersonId } = task.schedule
+  const schedule = task.schedule ?? createDefaultTaskSchedule(allPersons)
+  const { days, assignment, startPersonId, personId } = schedule
   if (!days[dayIndex]) {
     return []
   }
   if (assignment === 'all') {
     return allPersons.map((person) => person.id)
+  }
+  if (assignment === 'person') {
+    return personId ? [personId] : []
   }
   if (!allPersons.length) {
     return []

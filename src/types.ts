@@ -15,12 +15,13 @@ export interface Person {
   photoUrl?: string
 }
 
-export type TaskAssignment = 'all' | 'alternate'
+export type TaskAssignment = 'all' | 'alternate' | 'person'
 
 export interface TaskSchedule {
   days: boolean[]
   assignment: TaskAssignment
   startPersonId?: string
+  personId?: string
 }
 
 export interface Task {
