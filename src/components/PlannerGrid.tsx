@@ -75,10 +75,10 @@ export function PlannerGrid({ persons, allPersons, tasks, weekDays, todayIso, is
                     })()}
                   </span>
                 </span>
-                {weekDays.map((day, dayIndex) => {
+                {weekDays.map((day) => {
                   const isoDate = toISODate(day)
                   const isToday = isoDate === todayIso
-                  const assignedIds = getAssignedPersonIds(task, allPersons, dayIndex)
+                  const assignedIds = getAssignedPersonIds(task, allPersons, day)
                   const isActiveDay = assignedIds.length > 0
                   const isAssignedToPerson = assignedIds.includes(person.id)
                   const done = isAssignedToPerson ? isCompleted(person.id, task.id, isoDate) : false

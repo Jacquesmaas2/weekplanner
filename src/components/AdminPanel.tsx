@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import type { DragEvent, FormEvent } from 'react'
 import type { Person, Task, TaskAssignment } from '../types'
-import type { CloudSyncState } from '../hooks/useCloudSync'
 import { createDefaultTaskSchedule } from '../utils/tasks'
 
 type AdminPanelProps = {
@@ -20,10 +19,6 @@ type AdminPanelProps = {
   onToggleTaskForWeek: (id: string) => void
   onRemoveTask: (id: string) => void
   onUpdateAdminCode: (code: string) => void
-  householdId: string | null
-  onUpdateHouseholdId: (id: string | null) => void
-  cloudState: CloudSyncState
-  cloudError: string | null
 }
 
 export function AdminPanel({
@@ -42,10 +37,6 @@ export function AdminPanel({
   onToggleTaskForWeek,
   onRemoveTask,
   onUpdateAdminCode,
-  householdId,
-  onUpdateHouseholdId,
-  cloudState,
-  cloudError,
 }: AdminPanelProps) {
   const [personName, setPersonName] = useState('')
   const [taskName, setTaskName] = useState('')
@@ -53,11 +44,8 @@ export function AdminPanel({
   const [confirmCode, setConfirmCode] = useState('')
   const [codeMessage, setCodeMessage] = useState<string | null>(null)
   const [photoMessage, setPhotoMessage] = useState<string | null>(null)
-  const [householdInput, setHouseholdInput] = useState(householdId ?? '')
-  const [householdMessage, setHouseholdMessage] = useState<string | null>(null)
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
   const [dragOverTaskId, setDragOverTaskId] = useState<string | null>(null)
-  const cloudDisabled = cloudState.status === 'disabled'
 
   const activeSet = new Set(activeTaskIds ?? tasks.map((task) => task.id))
 
@@ -269,37 +257,6 @@ export function AdminPanel({
     setCodeMessage('Toegangscode bijgewerkt.')
     setNewCode('')
     setConfirmCode('')
-  }
-
-  const handleHouseholdSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    const trimmed = householdInput.trim()
-    if (!trimmed) {
-      onUpdateHouseholdId(null)
-      setHouseholdMessage('Cloud gedeactiveerd op dit apparaat. Je gegevens blijven lokaal bewaard.')
-      return
-    }
-    onUpdateHouseholdId(trimmed)
-    setHouseholdMessage('Cloudsynchronisatie actief voor dit gezin.')
-  }
-
-  const cloudStatusLabel = () => {
-    if (cloudState.status === 'disabled') {
-      return 'Cloud niet geconfigureerd. Voeg VITE_SUPABASE_URL en VITE_SUPABASE_ANON_KEY toe.'
-    }
-    if (!householdId) {
-      return 'Vul een gezin-ID in om synchronisatie in te schakelen.'
-    }
-    if (cloudState.status === 'syncing') {
-      return 'Bezig met synchroniseren...'
-    }
-    if (cloudState.status === 'error') {
-      return cloudState.errorMessage ?? 'Synchronisatie mislukt.'
-    }
-    if (cloudState.lastSyncedAt) {
-      return `Laatste sync: ${new Date(cloudState.lastSyncedAt).toLocaleTimeString('nl-NL')}`
-    }
-    return 'Cloudsynchronisatie actief.'
   }
 
   return (
@@ -526,38 +483,6 @@ export function AdminPanel({
             </p>
           )}
           <button type="submit">Toegangscode opslaan</button>
-        </form>
-      </section>
-      <section className="admin-section">
-        <h3>Apparaten koppelen</h3>
-        <p className="admin-section__note">
-          Gebruik hetzelfde gezin-ID op alle apparaten. Wijzigingen worden automatisch gedeeld zodra een verbinding actief is.
-        </p>
-        <form className="admin-form" onSubmit={handleHouseholdSubmit}>
-          <label htmlFor="household-id">Gezin-ID</label>
-          <input
-            id="household-id"
-            value={householdInput}
-            onChange={(event) => {
-              setHouseholdInput(event.target.value)
-              setHouseholdMessage(null)
-            }}
-            placeholder="Bijvoorbeeld: familie-van-dijk"
-            autoComplete="off"
-            disabled={cloudDisabled}
-          />
-          {householdMessage && (
-            <p className="admin-message admin-message--success" role="status">
-              {householdMessage}
-            </p>
-          )}
-          {cloudError && (
-            <p className="admin-message" role="alert">
-              {cloudError}
-            </p>
-          )}
-          <p className="admin-cloud-status">{cloudStatusLabel()}</p>
-          <button type="submit" disabled={cloudDisabled}>Opslaan</button>
         </form>
       </section>
     </div>

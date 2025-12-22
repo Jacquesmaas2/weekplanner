@@ -1,40 +1,16 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import type { Person } from '../types'
-import type { CloudSyncState } from '../hooks/useCloudSync'
 
 type LoginScreenProps = {
   persons: Person[]
   onSelectPerson: (personId: string) => void
   onAdminLogin: (code: string) => void
   adminError?: string
-  cloudStatus: CloudSyncState
-  hasHousehold: boolean
 }
 
-const formatCloudLabel = (state: CloudSyncState, hasHousehold: boolean) => {
-  if (state.status === 'disabled') {
-    return 'Cloudsync niet geconfigureerd.'
-  }
-  if (!hasHousehold) {
-    return 'Meld je als ouder aan om apparaten te koppelen.'
-  }
-  if (state.status === 'syncing') {
-    return 'Gegevens worden gesynchroniseerd...'
-  }
-  if (state.status === 'error') {
-    return state.errorMessage ?? 'Synchronisatie mislukt.'
-  }
-  if (state.lastSyncedAt) {
-    return `Laatste sync: ${new Date(state.lastSyncedAt).toLocaleTimeString('nl-NL')}`
-  }
-  return 'Cloudsync actief.'
-}
-
-export function LoginScreen({ persons, onSelectPerson, onAdminLogin, adminError, cloudStatus, hasHousehold }: LoginScreenProps) {
+export function LoginScreen({ persons, onSelectPerson, onAdminLogin, adminError }: LoginScreenProps) {
   const [code, setCode] = useState('')
-  const cloudLabel = formatCloudLabel(cloudStatus, hasHousehold)
-  const cloudTone = cloudStatus.status === 'error' ? 'login-cloud--error' : cloudStatus.status === 'syncing' ? 'login-cloud--syncing' : 'login-cloud--ok'
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -87,9 +63,6 @@ export function LoginScreen({ persons, onSelectPerson, onAdminLogin, adminError,
             {adminError && <p className="login-error" role="alert">{adminError}</p>}
             <button type="submit">Inloggen als ouder</button>
           </form>
-          <p className={`login-cloud ${cloudTone}`}>
-            {cloudLabel}
-          </p>
         </div>
       </section>
     </div>

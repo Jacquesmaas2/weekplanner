@@ -11,7 +11,7 @@ import {
   startOfYear,
   toISODate,
 } from '../utils/date'
-import { getAssignedPersonIds, getDayIndex, isTaskActiveForPersonOnDay } from '../utils/tasks'
+import { getAssignedPersonIds, isTaskActiveForPersonOnDay } from '../utils/tasks'
 
 type PeriodStats = {
   label: string
@@ -109,13 +109,12 @@ const computePeriodStats = (
     const isoDate = toISODate(currentDay)
     isoDatesInRange.add(isoDate)
     const effectiveIds = getEffectiveTaskIdsForDate(currentDay)
-    const dayIndex = getDayIndex(currentDay)
     effectiveIds.forEach((taskId) => {
       const task = taskLookup.get(taskId)
       if (!task) {
         return
       }
-      const assignedIds = getAssignedPersonIds(task, persons, dayIndex)
+      const assignedIds = getAssignedPersonIds(task, persons, currentDay)
       assignedIds.forEach((personId) => {
         if (!personIdSet.has(personId)) {
           return
@@ -142,8 +141,7 @@ const computePeriodStats = (
     if (!effectiveIds.has(entry.taskId)) {
       return
     }
-    const dayIndex = getDayIndex(entryDate)
-    if (!isTaskActiveForPersonOnDay(task, entry.personId, persons, dayIndex)) {
+    if (!isTaskActiveForPersonOnDay(task, entry.personId, persons, entryDate)) {
       return
     }
 

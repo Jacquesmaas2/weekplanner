@@ -4,10 +4,12 @@ import { AdminPanel } from './components/AdminPanel'
 import { LoginScreen } from './components/LoginScreen'
 import { PlannerGrid } from './components/PlannerGrid'
 import { StatsPanel } from './components/StatsPanel'
+import { TabletDashboard } from './components/TabletDashboard'
 import { HighlightsPanel, type DaySummary, type WeeklySummary } from './components/HighlightsPanel'
 import { buildDefaultPersons, buildDefaultTasks } from './data/defaults'
-import { useLocalStorageState } from './hooks/useLocalStorage'
-import type { CompletionMap, HouseholdConfig, Person, PersonTheme, Session, Task } from './types'
+import { usePersonsDB, useTasksDB, useSettingsDB } from './hooks/useDatabase'
+import { initializeDatabase } from './db/database'
+import type { CompletionMap, Person, PersonTheme, Session, Task } from './types'
 import { createCompletionKey, mapToEntries, parseCompletionKey } from './utils/completion'
 import {
   addDays,
@@ -17,7 +19,6 @@ import {
   startOfWeek,
   toISODate,
 } from './utils/date'
-import { useCloudSync } from './hooks/useCloudSync'
 import { createDefaultTaskSchedule, isTaskActiveForPersonOnDay, normalizeTask, normalizeTasks } from './utils/tasks'
 
 type PanelKey = 'planner' | 'stats' | 'admin'
@@ -43,23 +44,36 @@ const pickTheme = (existing: Person[]): PersonTheme => {
 function App() {
   const [activePanel, setActivePanel] = useState<PanelKey>('planner')
   const [referenceDate, setReferenceDate] = useState(() => new Date())
-  const [persons, setPersons] = useLocalStorageState<Person[]>('weekplanner_persons', buildDefaultPersons())
-  const [tasks, setTasks] = useLocalStorageState<Task[]>('weekplanner_tasks', buildDefaultTasks())
-  const [completions, setCompletions] = useLocalStorageState<CompletionMap>('weekplanner_completions', {})
-  const [weekTaskConfig, setWeekTaskConfig] = useLocalStorageState<Record<string, string[]>>(
-    'weekplanner_week_tasks',
+  const [tabletMode, setTabletMode] = useState(false)
+  const [persons, setPersons] = usePersonsDB(buildDefaultPersons())
+  const [tasks, setTasks] = useTasksDB(buildDefaultTasks())
+  const [completions, setCompletions] = useSettingsDB<CompletionMap>('completions', {})
+  const [weekTaskConfig, setWeekTaskConfig] = useSettingsDB<Record<string, string[]>>(
+    'weekTaskConfig',
     {},
   )
-  const [session, setSession] = useLocalStorageState<Session | null>('weekplanner_session', null)
-  const [adminCode, setAdminCode] = useLocalStorageState<string>('weekplanner_admin_code', 'ouder')
-  const [householdConfig, setHouseholdConfig] = useLocalStorageState<HouseholdConfig | null>(
-    'weekplanner_household',
-    null,
-  )
+  const [session, setSession] = useSettingsDB<Session | null>('session', null)
+  const [adminCode, setAdminCode] = useSettingsDB<string>('adminCode', 'ouder')
   const [adminLoginError, setAdminLoginError] = useState<string | undefined>()
+  const [dbInitialized, setDbInitialized] = useState(false)
+
+  // Initialize database and migrate from localStorage
+  useEffect(() => {
+    let mounted = true
+    const init = async () => {
+      await initializeDatabase()
+      if (mounted) {
+        setDbInitialized(true)
+      }
+    }
+    void init()
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   useEffect(() => {
-    setTasks((current) => {
+    void setTasks((current) => {
       const normalized = normalizeTasks(current, persons)
       const changed = normalized.some((task, index) => task !== current[index])
       return changed ? normalized : current
@@ -70,20 +84,20 @@ function App() {
     if (session?.role === 'user') {
       const exists = persons.some((person) => person.id === session.personId)
       if (!exists) {
-        setSession(null)
+        void setSession(null)
       }
     }
   }, [persons, session, setSession])
 
   const handleSelectPersonForLogin = (personId: string) => {
-    setSession({ role: 'user', personId })
+    void setSession({ role: 'user', personId })
     setActivePanel('planner')
     setAdminLoginError(undefined)
   }
 
   const handleAdminLogin = (code: string) => {
     if (code.trim() === adminCode) {
-      setSession({ role: 'admin' })
+      void setSession({ role: 'admin' })
       setActivePanel('planner')
       setAdminLoginError(undefined)
     } else {
@@ -92,13 +106,13 @@ function App() {
   }
 
   const handleLogout = () => {
-    setSession(null)
+    void setSession(null)
     setAdminLoginError(undefined)
     setActivePanel('planner')
   }
 
   const handleUpdateAdminCode = (code: string) => {
-    setAdminCode(code)
+    void setAdminCode(code)
   }
 
   const weekStart = useMemo(() => startOfWeek(referenceDate), [referenceDate])
@@ -147,13 +161,13 @@ function App() {
   const todayIso = toISODate(new Date())
 
   const dailySummaries = useMemo<DaySummary[]>(() => {
-    return weekDays.map((day, dayIndex) => {
+    return weekDays.map((day) => {
       const isoDate = toISODate(day)
       let completedCount = 0
       let total = 0
       viewPersons.forEach((person) => {
         visibleTasks.forEach((task) => {
-          if (isTaskActiveForPersonOnDay(task, person.id, persons, dayIndex)) {
+          if (isTaskActiveForPersonOnDay(task, person.id, persons, day)) {
             total += 1
             if (isCompleted(person.id, task.id, isoDate)) {
               completedCount += 1
@@ -189,27 +203,34 @@ function App() {
     }
   }, [dailySummaries])
 
-  const snapshot = useMemo(
-    () => ({ persons, tasks, completions, weekTaskConfig, adminCode }),
-    [persons, tasks, completions, weekTaskConfig, adminCode],
-  )
+  // Show loading state while database initializes
+  if (!dbInitialized) {
+    return (
+      <div className="app-container">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+          <p>Database wordt geladen...</p>
+        </div>
+      </div>
+    )
+  }
 
-  const applyRemoteSnapshot = useCallback(
-    (remote: { persons: Person[]; tasks: Task[]; completions: CompletionMap; weekTaskConfig: Record<string, string[]>; adminCode: string }) => {
-      setPersons(remote.persons)
-      setTasks(normalizeTasks(remote.tasks, remote.persons))
-      setCompletions(remote.completions)
-      setWeekTaskConfig(remote.weekTaskConfig)
-      setAdminCode(remote.adminCode)
-    },
-    [setPersons, setTasks, setCompletions, setWeekTaskConfig, setAdminCode],
-  )
+  // Check if tablet mode is requested via URL
+  const urlParams = new URLSearchParams(window.location.search)
+  const isTabletView = urlParams.get('tablet') === 'true' || tabletMode
 
-  const householdId = householdConfig?.householdId ?? null
-
-  const cloudState = useCloudSync(householdId, snapshot, applyRemoteSnapshot)
-
-  const cloudError = cloudState.status === 'error' ? cloudState.errorMessage ?? 'Cloud synchronisatie mislukt.' : null
+  // Tablet mode view
+  if (isTabletView) {
+    return (
+      <TabletDashboard
+        persons={persons}
+        tasks={visibleTasks}
+        weekDays={weekDays}
+        todayIso={todayIso}
+        isCompleted={isCompleted}
+        entries={completionEntries}
+      />
+    )
+  }
 
   if (!session) {
     return (
@@ -218,14 +239,12 @@ function App() {
         onSelectPerson={handleSelectPersonForLogin}
         onAdminLogin={handleAdminLogin}
         adminError={adminLoginError}
-        cloudStatus={cloudState}
-        hasHousehold={Boolean(householdId)}
       />
     )
   }
 
   const toggleCompletion = (personId: string, taskId: string, isoDate: string) => {
-    setCompletions((current) => {
+    void setCompletions((current) => {
       const key = createCompletionKey(personId, taskId, isoDate)
       const next: CompletionMap = { ...current }
       if (next[key]) {
@@ -238,7 +257,7 @@ function App() {
   }
 
   const handleAddPerson = (name: string) => {
-    setPersons((current) => [
+    void setPersons((current) => [
       ...current,
       {
         id: generateId(),
@@ -250,8 +269,8 @@ function App() {
   }
 
   const handleRemovePerson = (personId: string) => {
-    setPersons((current) => current.filter((person) => person.id !== personId))
-    setCompletions((current) => {
+    void setPersons((current) => current.filter((person) => person.id !== personId))
+    void setCompletions((current) => {
       const next: CompletionMap = {}
       Object.keys(current).forEach((key) => {
         const entry = parseCompletionKey(key)
@@ -264,7 +283,7 @@ function App() {
   }
 
   const handleUpdatePersonPhoto = (personId: string, photoUrl: string | null) => {
-    setPersons((current) =>
+    void setPersons((current) =>
       current.map((person) =>
         person.id === personId
           ? {
@@ -283,8 +302,8 @@ function App() {
       schedule: createDefaultTaskSchedule(persons),
     }
 
-    setTasks((current) => [...current, newTask])
-    setWeekTaskConfig((current) => {
+    void setTasks((current) => [...current, newTask])
+    void setWeekTaskConfig((current) => {
       if (!Object.keys(current).length) {
         return current
       }
@@ -301,14 +320,14 @@ function App() {
   }
 
   const handleSortTasks = () => {
-    setTasks((current) => {
+    void setTasks((current) => {
       const next = [...current].sort((a, b) => a.name.localeCompare(b.name, 'nl-NL', { sensitivity: 'base' }))
       return next
     })
   }
 
   const handleReorderTasks = (orderedIds: string[]) => {
-    setTasks((current) => {
+    void setTasks((current) => {
       if (!orderedIds.length) {
         return current
       }
@@ -332,7 +351,7 @@ function App() {
   }
 
   const handleUpdateTaskSchedule = (taskId: string, schedule: Task['schedule']) => {
-    setTasks((current) =>
+    void setTasks((current) =>
       current.map((task) => {
         if (task.id !== taskId) {
           return task
@@ -344,7 +363,7 @@ function App() {
   }
 
   const handleToggleTaskForWeek = (taskId: string) => {
-    setWeekTaskConfig((current) => {
+    void setWeekTaskConfig((current) => {
       const currentWeek = current[weekKey] ?? tasks.map((task) => task.id)
       const set = new Set(currentWeek)
       if (set.has(taskId)) {
@@ -365,8 +384,8 @@ function App() {
   }
 
   const handleRemoveTask = (taskId: string) => {
-    setTasks((current) => current.filter((task) => task.id !== taskId))
-    setCompletions((current) => {
+    void setTasks((current) => current.filter((task) => task.id !== taskId))
+    void setCompletions((current) => {
       const next: CompletionMap = {}
       Object.keys(current).forEach((key) => {
         const entry = parseCompletionKey(key)
@@ -376,7 +395,7 @@ function App() {
       })
       return next
     })
-    setWeekTaskConfig((current) => {
+    void setWeekTaskConfig((current) => {
       const next: Record<string, string[]> = {}
       Object.entries(current).forEach(([key, value]) => {
         next[key] = value.filter((id) => id !== taskId)
@@ -449,6 +468,15 @@ function App() {
           <button type="button" onClick={goToNextWeek}>
             Volgende week
           </button>
+          {isAdmin && (
+            <button 
+              type="button" 
+              onClick={() => setTabletMode(true)}
+              style={{ marginLeft: 'auto', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}
+            >
+              📱 Tablet weergave
+            </button>
+          )}
         </div>
       </section>
 
@@ -482,7 +510,6 @@ function App() {
         )}
         {isAdmin && activePanel === 'admin' && (
           <AdminPanel
-            key={householdId ?? 'none'}
             persons={persons}
             tasks={tasks}
             activeTaskIds={activeTaskIds}
@@ -498,10 +525,6 @@ function App() {
             currentWeekLabel={formatWeekRange(weekStart)}
             adminCode={adminCode}
             onUpdateAdminCode={handleUpdateAdminCode}
-            householdId={householdId}
-            onUpdateHouseholdId={(id) => setHouseholdConfig(id ? { householdId: id } : null)}
-            cloudState={cloudState}
-            cloudError={cloudError}
           />
         )}
       </main>

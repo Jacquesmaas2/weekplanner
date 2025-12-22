@@ -80,9 +80,10 @@ export const getDayIndex = (date: Date): number => {
   return day === 0 ? 6 : day - 1
 }
 
-export const getAssignedPersonIds = (task: Task, allPersons: Person[], dayIndex: number): string[] => {
+export const getAssignedPersonIds = (task: Task, allPersons: Person[], date: Date): string[] => {
   const schedule = task.schedule ?? createDefaultTaskSchedule(allPersons)
   const { days, assignment, startPersonId, personId } = schedule
+  const dayIndex = getDayIndex(date)
   if (!days[dayIndex]) {
     return []
   }
@@ -101,7 +102,10 @@ export const getAssignedPersonIds = (task: Task, allPersons: Person[], dayIndex:
   const rotation = startIndex >= 0
     ? [...allPersons.slice(startIndex), ...allPersons.slice(0, startIndex)]
     : allPersons
-  const rotatedPerson = rotation[dayIndex % rotation.length]
+  // Calculate days since epoch (Jan 1, 2024) to ensure consistent rotation across weeks
+  const epoch = new Date(2024, 0, 1)
+  const daysSinceEpoch = Math.floor((date.getTime() - epoch.getTime()) / (1000 * 60 * 60 * 24))
+  const rotatedPerson = rotation[daysSinceEpoch % rotation.length]
   return rotatedPerson ? [rotatedPerson.id] : []
 }
 
@@ -109,13 +113,13 @@ export const isTaskActiveForPersonOnDay = (
   task: Task,
   personId: string,
   allPersons: Person[],
-  dayIndex: number,
+  date: Date,
 ): boolean => {
-  const assigned = getAssignedPersonIds(task, allPersons, dayIndex)
+  const assigned = getAssignedPersonIds(task, allPersons, date)
   return assigned.includes(personId)
 }
 
-export const hasAnyAssignmentOnDay = (task: Task, allPersons: Person[], dayIndex: number): boolean => {
-  const assigned = getAssignedPersonIds(task, allPersons, dayIndex)
+export const hasAnyAssignmentOnDay = (task: Task, allPersons: Person[], date: Date): boolean => {
+  const assigned = getAssignedPersonIds(task, allPersons, date)
   return assigned.length > 0
 }
