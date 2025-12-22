@@ -7,8 +7,7 @@ import { StatsPanel } from './components/StatsPanel'
 import { TabletDashboard } from './components/TabletDashboard'
 import { HighlightsPanel, type DaySummary, type WeeklySummary } from './components/HighlightsPanel'
 import { buildDefaultPersons, buildDefaultTasks } from './data/defaults'
-import { usePersonsDB, useTasksDB, useSettingsDB } from './hooks/useDatabase'
-import { initializeDatabase } from './db/database'
+import * as storage from './storage/localStorage'
 import type { CompletionMap, Person, PersonTheme, Session, Task } from './types'
 import { createCompletionKey, mapToEntries, parseCompletionKey } from './utils/completion'
 import {
@@ -45,59 +44,97 @@ function App() {
   const [activePanel, setActivePanel] = useState<PanelKey>('planner')
   const [referenceDate, setReferenceDate] = useState(() => new Date())
   const [tabletMode, setTabletMode] = useState(false)
-  const [persons, setPersons] = usePersonsDB(buildDefaultPersons())
-  const [tasks, setTasks] = useTasksDB(buildDefaultTasks())
-  const [completions, setCompletions] = useSettingsDB<CompletionMap>('completions', {})
-  const [weekTaskConfig, setWeekTaskConfig] = useSettingsDB<Record<string, string[]>>(
-    'weekTaskConfig',
-    {},
+  const [persons, setPersonsState] = useState<Person[]>(() => storage.getPersons(buildDefaultPersons()))
+  const [tasks, setTasksState] = useState<Task[]>(() => storage.getTasks(buildDefaultTasks()))
+  const [completions, setCompletionsState] = useState<CompletionMap>(() => storage.getCompletions({}))
+  const [weekTaskConfig, setWeekTaskConfigState] = useState<Record<string, string[]>>(() => 
+    storage.getWeekTaskConfig({})
   )
-  const [session, setSession] = useSettingsDB<Session | null>('session', null)
-  const [adminCode, setAdminCode] = useSettingsDB<string>('adminCode', 'ouder')
+  const [session, setSessionState] = useState<Session | null>(() => storage.getSession(null))
+  const [adminCode, setAdminCodeState] = useState<string>(() => storage.getAdminCode('ouder'))
   const [adminLoginError, setAdminLoginError] = useState<string | undefined>()
-  const [dbInitialized, setDbInitialized] = useState(false)
 
-  // Initialize database and migrate from localStorage
+  // Initialize storage
   useEffect(() => {
-    let mounted = true
-    const init = async () => {
-      await initializeDatabase()
-      if (mounted) {
-        setDbInitialized(true)
-      }
-    }
-    void init()
-    return () => {
-      mounted = false
-    }
+    storage.initializeStorage()
   }, [])
 
+  // Sync state to localStorage
   useEffect(() => {
-    void setTasks((current) => {
+    storage.setPersons(persons)
+  }, [persons])
+
+  useEffect(() => {
+    storage.setTasks(tasks)
+  }, [tasks])
+
+  useEffect(() => {
+    storage.setCompletions(completions)
+  }, [completions])
+
+  useEffect(() => {
+    storage.setWeekTaskConfig(weekTaskConfig)
+  }, [weekTaskConfig])
+
+  useEffect(() => {
+    storage.setSession(session)
+  }, [session])
+
+  useEffect(() => {
+    storage.setAdminCode(adminCode)
+  }, [adminCode])
+
+  // Wrapper functions to maintain same API
+  const setPersons = (updater: Person[] | ((current: Person[]) => Person[])) => {
+    setPersonsState(prev => typeof updater === 'function' ? updater(prev) : updater)
+  }
+
+  const setTasks = (updater: Task[] | ((current: Task[]) => Task[])) => {
+    setTasksState(prev => typeof updater === 'function' ? updater(prev) : updater)
+  }
+
+  const setCompletions = (updater: CompletionMap | ((current: CompletionMap) => CompletionMap)) => {
+    setCompletionsState(prev => typeof updater === 'function' ? updater(prev) : updater)
+  }
+
+  const setWeekTaskConfig = (updater: Record<string, string[]> | ((current: Record<string, string[]>) => Record<string, string[]>)) => {
+    setWeekTaskConfigState(prev => typeof updater === 'function' ? updater(prev) : updater)
+  }
+
+  const setSession = (updater: Session | null | ((current: Session | null) => Session | null)) => {
+    setSessionState(prev => typeof updater === 'function' ? updater(prev) : updater)
+  }
+
+  const setAdminCode = (updater: string | ((current: string) => string)) => {
+    setAdminCodeState(prev => typeof updater === 'function' ? updater(prev) : updater)
+  }
+
+  useEffect(() => {
+    setTasks((current) => {
       const normalized = normalizeTasks(current, persons)
       const changed = normalized.some((task, index) => task !== current[index])
       return changed ? normalized : current
     })
-  }, [persons, setTasks])
+  }, [persons])
 
   useEffect(() => {
     if (session?.role === 'user') {
       const exists = persons.some((person) => person.id === session.personId)
       if (!exists) {
-        void setSession(null)
+        setSession(null)
       }
     }
-  }, [persons, session, setSession])
+  }, [persons, session])
 
   const handleSelectPersonForLogin = (personId: string) => {
-    void setSession({ role: 'user', personId })
+    setSession({ role: 'user', personId })
     setActivePanel('planner')
     setAdminLoginError(undefined)
   }
 
   const handleAdminLogin = (code: string) => {
     if (code.trim() === adminCode) {
-      void setSession({ role: 'admin' })
+      setSession({ role: 'admin' })
       setActivePanel('planner')
       setAdminLoginError(undefined)
     } else {
@@ -106,13 +143,13 @@ function App() {
   }
 
   const handleLogout = () => {
-    void setSession(null)
+    setSession(null)
     setAdminLoginError(undefined)
     setActivePanel('planner')
   }
 
   const handleUpdateAdminCode = (code: string) => {
-    void setAdminCode(code)
+    setAdminCode(code)
   }
 
   const weekStart = useMemo(() => startOfWeek(referenceDate), [referenceDate])
@@ -202,17 +239,6 @@ function App() {
       rate: aggregate.total > 0 ? aggregate.completed / aggregate.total : 0,
     }
   }, [dailySummaries])
-
-  // Show loading state while database initializes
-  if (!dbInitialized) {
-    return (
-      <div className="app-container">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-          <p>Database wordt geladen...</p>
-        </div>
-      </div>
-    )
-  }
 
   // Check if tablet mode is requested via URL
   const urlParams = new URLSearchParams(window.location.search)
@@ -351,7 +377,7 @@ function App() {
   }
 
   const handleUpdateTaskSchedule = (taskId: string, schedule: Task['schedule']) => {
-    void setTasks((current) =>
+    setTasks((current) =>
       current.map((task) => {
         if (task.id !== taskId) {
           return task
@@ -363,7 +389,7 @@ function App() {
   }
 
   const handleToggleTaskForWeek = (taskId: string) => {
-    void setWeekTaskConfig((current) => {
+    setWeekTaskConfig((current) => {
       const currentWeek = current[weekKey] ?? tasks.map((task) => task.id)
       const set = new Set(currentWeek)
       if (set.has(taskId)) {

@@ -5,8 +5,7 @@ import type { Person, Task } from '../types'
 
 // Hook for managing persons in IndexedDB
 export const usePersonsDB = (defaultValue: Person[]) => {
-  const [initialized, setInitialized] = useState(false)
-  const persons = useLiveQuery(() => db.persons.toArray(), [], [])
+  const personsFromDB = useLiveQuery(() => db.persons.toArray())
   
   // Initialize with defaults if database is empty
   useEffect(() => {
@@ -17,9 +16,6 @@ export const usePersonsDB = (defaultValue: Person[]) => {
       if (count === 0 && defaultValue.length > 0 && mounted) {
         await db.persons.bulkAdd(defaultValue)
       }
-      if (mounted) {
-        setInitialized(true)
-      }
     }
     
     void initDefaults()
@@ -27,7 +23,7 @@ export const usePersonsDB = (defaultValue: Person[]) => {
     return () => {
       mounted = false
     }
-  }, []) // Only run once on mount
+  }, [])
   
   const setPersons = async (updater: Person[] | ((current: Person[]) => Person[])) => {
     const current = await db.persons.toArray()
@@ -40,13 +36,16 @@ export const usePersonsDB = (defaultValue: Person[]) => {
     })
   }
 
-  return [initialized ? persons : defaultValue, setPersons] as const
+  // useLiveQuery returns undefined while loading, then the actual data
+  // Use defaultValue while loading, then switch to DB data
+  const persons = personsFromDB ?? defaultValue
+  
+  return [persons, setPersons] as const
 }
 
 // Hook for managing tasks in IndexedDB
 export const useTasksDB = (defaultValue: Task[]) => {
-  const [initialized, setInitialized] = useState(false)
-  const tasks = useLiveQuery(() => db.tasks.toArray(), [], [])
+  const tasksFromDB = useLiveQuery(() => db.tasks.toArray())
   
   // Initialize with defaults if database is empty
   useEffect(() => {
@@ -57,9 +56,6 @@ export const useTasksDB = (defaultValue: Task[]) => {
       if (count === 0 && defaultValue.length > 0 && mounted) {
         await db.tasks.bulkAdd(defaultValue)
       }
-      if (mounted) {
-        setInitialized(true)
-      }
     }
     
     void initDefaults()
@@ -67,7 +63,7 @@ export const useTasksDB = (defaultValue: Task[]) => {
     return () => {
       mounted = false
     }
-  }, []) // Only run once on mount
+  }, [])
   
   const setTasks = async (updater: Task[] | ((current: Task[]) => Task[])) => {
     const current = await db.tasks.toArray()
@@ -80,7 +76,11 @@ export const useTasksDB = (defaultValue: Task[]) => {
     })
   }
 
-  return [initialized ? tasks : defaultValue, setTasks] as const
+  // useLiveQuery returns undefined while loading, then the actual data
+  // Use defaultValue while loading, then switch to DB data
+  const tasks = tasksFromDB ?? defaultValue
+  
+  return [tasks, setTasks] as const
 }
 
 // Generic hook for settings stored in IndexedDB
