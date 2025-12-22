@@ -3,6 +3,7 @@ import type { Person, Task } from '../types'
 import type { CompletionEntry } from '../utils/completion'
 import { formatDayLabel, toISODate } from '../utils/date'
 import { getAssignedPersonIds } from '../utils/tasks'
+import { fetchMotivationalContent, type Quote, type NewsItem } from '../services/content'
 
 type TabletDashboardProps = {
   persons: Person[]
@@ -12,17 +13,6 @@ type TabletDashboardProps = {
   isCompleted: (personId: string, taskId: string, isoDate: string) => boolean
   entries: CompletionEntry[]
 }
-
-const MOTIVATIONAL_QUOTES = [
-  '🌟 Elke taak die je afmaakt, maakt je sterker!',
-  '🎯 Kleine stapjes leiden tot grote overwinningen!',
-  '💪 Jullie zijn een super team!',
-  '⭐ Wat een toppers zijn jullie!',
-  '🏆 Samen maken we er een geweldige week van!',
-  '🎨 Jullie doen het fantastisch!',
-  '🚀 Doorgaan zo, jullie zijn ontzettend goed bezig!',
-  '❤️ Trots op jullie inzet!',
-]
 
 const ROTATION_INTERVAL = 15000 // 15 seconds
 
@@ -35,7 +25,9 @@ export function TabletDashboard({
   entries,
 }: TabletDashboardProps) {
   const [currentView, setCurrentView] = useState<'overview' | 'person-0' | 'person-1' | 'stats' | 'quote'>('overview')
-  const [currentQuoteIndex, setCurrentQuoteIndex] = useState(0)
+  const [currentQuote, setCurrentQuote] = useState<Quote>({ text: 'Laden...', author: '' })
+  const [news, setNews] = useState<NewsItem[]>([])
+  const [isLoadingContent, setIsLoadingContent] = useState(true)
 
   const today = useMemo(() => weekDays.find((day) => toISODate(day) === todayIso), [weekDays, todayIso])
   const todayLabel = today ? formatDayLabel(today) : 'Vandaag'
@@ -95,6 +87,24 @@ export function TabletDashboard({
     })
   }, [today, persons, tasks, isCompleted])
 
+  // Fetch fresh content when entering quote view
+  useEffect(() => {
+    if (currentView === 'quote' && isLoadingContent) {
+      const loadContent = async () => {
+        try {
+          const content = await fetchMotivationalContent()
+          setCurrentQuote(content.quote)
+          setNews(content.news)
+        } catch (error) {
+          console.error('Failed to load content:', error)
+        } finally {
+          setIsLoadingContent(false)
+        }
+      }
+      void loadContent()
+    }
+  }, [currentView, isLoadingContent])
+
   // Auto-rotate views
   useEffect(() => {
     const views: typeof currentView[] = ['overview']
@@ -108,9 +118,9 @@ export function TabletDashboard({
       currentIndex = (currentIndex + 1) % views.length
       setCurrentView(views[currentIndex])
       
-      // Rotate quote when on quote view
+      // Fetch new content when entering quote view
       if (views[currentIndex] === 'quote') {
-        setCurrentQuoteIndex((prev) => (prev + 1) % MOTIVATIONAL_QUOTES.length)
+        setIsLoadingContent(true)
       }
     }, ROTATION_INTERVAL)
 
@@ -282,10 +292,30 @@ export function TabletDashboard({
   const renderQuote = () => (
     <div className="tablet-view tablet-view--quote">
       <div className="tablet-quote-content">
+        <div className="tablet-quote-emoji">💫</div>
         <div className="tablet-quote-text">
-          {MOTIVATIONAL_QUOTES[currentQuoteIndex]}
+          {currentQuote.text}
         </div>
+        {currentQuote.author && (
+          <div className="tablet-quote-author">
+            — {currentQuote.author}
+          </div>
+        )}
       </div>
+      
+      {news.length > 0 && (
+        <div className="tablet-news-section">
+          <h3 className="tablet-news-title">📰 Nieuws</h3>
+          <div className="tablet-news-list">
+            {news.map((item, index) => (
+              <div key={index} className="tablet-news-item">
+                <div className="tablet-news-item-title">{item.title}</div>
+                <div className="tablet-news-item-source">{item.source}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 

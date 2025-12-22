@@ -1201,15 +1201,16 @@ main {
 }
 
 .tablet-person-card {
-  background: linear-gradient(135deg, var(--theme-light), var(--theme-base));
+  background: white;
   border-radius: 24px;
   padding: 2rem;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 1rem;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
   transition: transform 0.3s ease;
+  border: 3px solid var(--theme-base);
 }
 
 .tablet-person-card:hover {
@@ -1244,8 +1245,8 @@ main {
 .tablet-person-card-name {
   font-size: 2rem;
   font-weight: 700;
-  color: white;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  color: #1e293b;
+  text-shadow: none;
 }
 
 .tablet-person-card-stats {
@@ -1258,24 +1259,24 @@ main {
 .tablet-person-card-number {
   font-size: 2.5rem;
   font-weight: 800;
-  color: white;
+  color: #1e293b;
   text-align: center;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  text-shadow: none;
 }
 
 .tablet-person-card-progress {
   height: 16px;
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(30, 41, 59, 0.2);
   border-radius: 8px;
   overflow: hidden;
 }
 
 .tablet-person-card-progress-fill {
   height: 100%;
-  background: white;
+  background: #1e293b;
   border-radius: 8px;
   transition: width 0.6s ease;
-  box-shadow: 0 0 12px rgba(255, 255, 255, 0.5);
+  box-shadow: 0 0 8px rgba(30, 41, 59, 0.3);
 }
 
 .tablet-week-summary {
@@ -1524,22 +1525,91 @@ main {
 
 /* Quote View */
 .tablet-view--quote {
-  justify-content: center;
-  align-items: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  gap: 3rem;
 }
 
 .tablet-quote-content {
   text-align: center;
-  padding: 4rem;
+  padding: 3rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 24px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.tablet-quote-emoji {
+  font-size: 5rem;
+  margin-bottom: 1.5rem;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
 }
 
 .tablet-quote-text {
-  font-size: 4.5rem;
-  font-weight: 800;
+  font-size: 2.5rem;
+  font-weight: 700;
   color: white;
-  text-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-  line-height: 1.3;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  line-height: 1.4;
+  margin-bottom: 1.5rem;
+}
+
+.tablet-quote-author {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  font-style: italic;
+  margin-top: 1rem;
+}
+
+.tablet-news-section {
+  width: 100%;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  border-radius: 24px;
+  padding: 2.5rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.tablet-news-title {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #1e293b;
+  margin: 0 0 1.5rem;
+  text-align: center;
+}
+
+.tablet-news-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.tablet-news-item {
+  background: white;
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s ease;
+}
+
+.tablet-news-item:hover {
+  transform: translateX(8px);
+}
+
+.tablet-news-item-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1.4;
+  margin-bottom: 0.5rem;
+}
+
+.tablet-news-item-source {
+  font-size: 1rem;
+  color: #64748b;
+  font-weight: 600;
 }
 
 /* Navigation Dots */
