@@ -5,7 +5,29 @@ import type { Person, Task } from '../types'
 
 // Hook for managing persons in IndexedDB
 export const usePersonsDB = (defaultValue: Person[]) => {
-  const persons = useLiveQuery(() => db.persons.toArray(), [], defaultValue)
+  const [initialized, setInitialized] = useState(false)
+  const persons = useLiveQuery(() => db.persons.toArray(), [], [])
+  
+  // Initialize with defaults if database is empty
+  useEffect(() => {
+    let mounted = true
+    
+    const initDefaults = async () => {
+      const count = await db.persons.count()
+      if (count === 0 && defaultValue.length > 0 && mounted) {
+        await db.persons.bulkAdd(defaultValue)
+      }
+      if (mounted) {
+        setInitialized(true)
+      }
+    }
+    
+    void initDefaults()
+    
+    return () => {
+      mounted = false
+    }
+  }, []) // Only run once on mount
   
   const setPersons = async (updater: Person[] | ((current: Person[]) => Person[])) => {
     const current = await db.persons.toArray()
@@ -18,12 +40,34 @@ export const usePersonsDB = (defaultValue: Person[]) => {
     })
   }
 
-  return [persons, setPersons] as const
+  return [initialized ? persons : defaultValue, setPersons] as const
 }
 
 // Hook for managing tasks in IndexedDB
 export const useTasksDB = (defaultValue: Task[]) => {
-  const tasks = useLiveQuery(() => db.tasks.toArray(), [], defaultValue)
+  const [initialized, setInitialized] = useState(false)
+  const tasks = useLiveQuery(() => db.tasks.toArray(), [], [])
+  
+  // Initialize with defaults if database is empty
+  useEffect(() => {
+    let mounted = true
+    
+    const initDefaults = async () => {
+      const count = await db.tasks.count()
+      if (count === 0 && defaultValue.length > 0 && mounted) {
+        await db.tasks.bulkAdd(defaultValue)
+      }
+      if (mounted) {
+        setInitialized(true)
+      }
+    }
+    
+    void initDefaults()
+    
+    return () => {
+      mounted = false
+    }
+  }, []) // Only run once on mount
   
   const setTasks = async (updater: Task[] | ((current: Task[]) => Task[])) => {
     const current = await db.tasks.toArray()
@@ -36,7 +80,7 @@ export const useTasksDB = (defaultValue: Task[]) => {
     })
   }
 
-  return [tasks, setTasks] as const
+  return [initialized ? tasks : defaultValue, setTasks] as const
 }
 
 // Generic hook for settings stored in IndexedDB

@@ -109,4 +109,12 @@ export const migrateFromLocalStorage = async () => {
 // Initialize database and run migration
 export const initializeDatabase = async () => {
   await migrateFromLocalStorage()
+  
+  // Check if this is first run (no data at all)
+  const initialized = await getSettings('database_initialized', false)
+  if (!initialized) {
+    // Database is empty, mark as initialized but don't add defaults
+    // Let the app handle populating defaults through the UI
+    await setSettings('database_initialized', true)
+  }
 }
