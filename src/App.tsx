@@ -84,6 +84,22 @@ function App() {
     void init()
   }, [])
 
+  // Expose a one-time migration helper in the browser console
+  useEffect(() => {
+    // Attach after initial render
+    ;(window as any).migrateLocalToCloud = async () => {
+      try {
+        const { migrateLocalToCloud } = await import('./storage/migrateLocalToCloud')
+        const summary = await migrateLocalToCloud()
+        console.log('Migration summary:', summary)
+        alert('Migratie voltooid: personen=' + summary.persons + ', taken=' + summary.tasks)
+      } catch (err) {
+        console.error('Migratie mislukt:', err)
+        alert('Migratie mislukt: ' + (err as Error).message)
+      }
+    }
+  }, [])
+
   // Persist changes via provider when available
   useEffect(() => { if (provider) void provider.setPersons(persons) }, [provider, persons])
   useEffect(() => { if (provider) void provider.setTasks(tasks) }, [provider, tasks])

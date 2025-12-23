@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { migrateLocalToCloud } from '../storage/migrateLocalToCloud'
 import type { DragEvent, FormEvent } from 'react'
 import type { Person, Task, TaskAssignment } from '../types'
 import { createDefaultTaskSchedule } from '../utils/tasks'
@@ -46,6 +47,8 @@ export function AdminPanel({
   const [photoMessage, setPhotoMessage] = useState<string | null>(null)
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
   const [dragOverTaskId, setDragOverTaskId] = useState<string | null>(null)
+  const [migrationMessage, setMigrationMessage] = useState<string | null>(null)
+  const [migrationBusy, setMigrationBusy] = useState(false)
 
   const activeSet = new Set(activeTaskIds ?? tasks.map((task) => task.id))
 
@@ -261,6 +264,38 @@ export function AdminPanel({
 
   return (
     <div className="admin-panel">
+      <section className="admin-section">
+        <h3>Cloud opslag</h3>
+        <p className="admin-section__note">
+          Upload lokale gegevens naar Turso zodat alle apparaten dezelfde data gebruiken.
+        </p>
+        {migrationMessage && (
+          <p className={`admin-message ${migrationMessage.startsWith('✅') ? 'admin-message--success' : ''}`} role="status">
+            {migrationMessage}
+          </p>
+        )}
+        <button
+          type="button"
+          onClick={async () => {
+            setMigrationMessage(null)
+            const ok = window.confirm('Lokale gegevens naar cloud uploaden? Bestaande cloudgegevens worden overschreven.')
+            if (!ok) return
+            setMigrationBusy(true)
+            try {
+              const summary = await migrateLocalToCloud()
+              setMigrationMessage(`✅ Migratie voltooid: personen=${summary.persons}, taken=${summary.tasks}`)
+            } catch (err) {
+              console.error(err)
+              setMigrationMessage('❌ Migratie mislukt: ' + (err as Error).message)
+            } finally {
+              setMigrationBusy(false)
+            }
+          }}
+          disabled={migrationBusy}
+        >
+          {migrationBusy ? 'Bezig met migreren…' : 'Upload lokale data naar cloud'}
+        </button>
+      </section>
       <section className="admin-section">
         <h3>Personen beheren</h3>
         <form className="admin-form" onSubmit={handlePersonSubmit}>

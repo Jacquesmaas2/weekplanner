@@ -1,4 +1,4 @@
-import { createClient } from '@libsql/client-wasm'
+import { createClient } from '@libsql/client'
 import type { Person, Task, CompletionMap, Session } from '../types'
 import type { StorageProvider } from './provider'
 
