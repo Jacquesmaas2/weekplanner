@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Person, Task } from '../types'
 import type { CompletionEntry } from '../utils/completion'
 import { formatDayLabel, toISODate } from '../utils/date'
@@ -28,6 +28,63 @@ export function TabletDashboard({
   const [currentQuote, setCurrentQuote] = useState<Quote>({ text: 'Laden...', author: '' })
   const [news, setNews] = useState<NewsItem[]>([])
   const [isLoadingContent, setIsLoadingContent] = useState(true)
+
+  // Build the ordered list of views based on number of persons
+  const views = useMemo(() => {
+    const base: Array<typeof currentView> = ['overview']
+    persons.forEach((_, index) => base.push(`person-${index}` as typeof currentView))
+    base.push('stats', 'quote')
+    return base
+  }, [persons.length])
+
+  // Touch handling for swipe navigation
+  const touchStartX = useRef<number | null>(null)
+  const touchStartY = useRef<number | null>(null)
+  const SWIPE_THRESHOLD = 50 // px
+
+  const goToView = (view: typeof currentView) => {
+    setCurrentView(view)
+    if (view === 'quote') {
+      setIsLoadingContent(true)
+    }
+  }
+
+  const goNext = () => {
+    const idx = views.indexOf(currentView)
+    const next = views[(idx + 1) % views.length]
+    goToView(next)
+  }
+
+  const goPrev = () => {
+    const idx = views.indexOf(currentView)
+    const prev = views[(idx - 1 + views.length) % views.length]
+    goToView(prev)
+  }
+
+  const handleTouchStart: React.TouchEventHandler<HTMLDivElement> = (e) => {
+    const t = e.changedTouches[0]
+    touchStartX.current = t.clientX
+    touchStartY.current = t.clientY
+  }
+
+  const handleTouchEnd: React.TouchEventHandler<HTMLDivElement> = (e) => {
+    if (touchStartX.current === null || touchStartY.current === null) return
+    const t = e.changedTouches[0]
+    const dx = t.clientX - touchStartX.current
+    const dy = t.clientY - touchStartY.current
+
+    // Horizontal swipe with sufficient distance and dominant over vertical movement
+    if (Math.abs(dx) > SWIPE_THRESHOLD && Math.abs(dx) > Math.abs(dy)) {
+      if (dx < 0) {
+        goNext()
+      } else {
+        goPrev()
+      }
+    }
+
+    touchStartX.current = null
+    touchStartY.current = null
+  }
 
   const today = useMemo(() => weekDays.find((day) => toISODate(day) === todayIso), [weekDays, todayIso])
   const todayLabel = today ? formatDayLabel(today) : 'Vandaag'
@@ -105,27 +162,15 @@ export function TabletDashboard({
     }
   }, [currentView, isLoadingContent])
 
-  // Auto-rotate views
+  // Auto-rotate views – always advance from the current view
   useEffect(() => {
-    const views: typeof currentView[] = ['overview']
-    persons.forEach((_, index) => {
-      views.push(`person-${index}` as typeof currentView)
-    })
-    views.push('stats', 'quote')
-
-    let currentIndex = 0
     const interval = setInterval(() => {
-      currentIndex = (currentIndex + 1) % views.length
-      setCurrentView(views[currentIndex])
-      
-      // Fetch new content when entering quote view
-      if (views[currentIndex] === 'quote') {
-        setIsLoadingContent(true)
-      }
+      const idx = views.indexOf(currentView)
+      const next = views[(idx + 1) % views.length]
+      goToView(next)
     }, ROTATION_INTERVAL)
-
     return () => clearInterval(interval)
-  }, [persons.length])
+  }, [views, currentView])
 
   const renderPersonView = (personIndex: number) => {
     if (personIndex >= persons.length || !today) return null
@@ -321,7 +366,7 @@ export function TabletDashboard({
 
   return (
     <div className="tablet-dashboard">
-      <div className="tablet-container">
+      <div className="tablet-container" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
         {currentView === 'overview' && renderOverview()}
         {currentView === 'person-0' && renderPersonView(0)}
         {currentView === 'person-1' && renderPersonView(1)}
