@@ -29,6 +29,28 @@ export function TabletDashboard({
   const [news, setNews] = useState<NewsItem[]>([])
   const [isLoadingContent, setIsLoadingContent] = useState(true)
 
+  // Scaling to guarantee one-screen fit
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const viewRef = useRef<HTMLDivElement | null>(null)
+  const [scale, setScale] = useState(1)
+  const recomputeScale = () => {
+    const c = containerRef.current
+    const v = viewRef.current
+    if (!c || !v) return
+    const cw = c.clientWidth
+    const ch = c.clientHeight
+    const vw = v.scrollWidth
+    const vh = v.scrollHeight
+    const s = Math.min(cw / Math.max(vw, 1), ch / Math.max(vh, 1))
+    setScale(s < 1 ? s : 1)
+  }
+  useEffect(() => {
+    recomputeScale()
+    const onResize = () => recomputeScale()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [currentView, persons.length, tasks.length, isLoadingContent])
+
   // Build the ordered list of views based on number of persons
   const views = useMemo(() => {
     const base: Array<typeof currentView> = ['overview']
@@ -183,7 +205,7 @@ export function TabletDashboard({
     })
 
     return (
-      <div className="tablet-view tablet-view--person">
+      <div className="tablet-view tablet-view--person" ref={viewRef}>
         <div className={`tablet-person-header theme-${person.theme}`}>
           <div className="tablet-person-avatar">
             {person.photoUrl ? (
@@ -233,7 +255,7 @@ export function TabletDashboard({
   }
 
   const renderOverview = () => (
-    <div className="tablet-view tablet-view--overview">
+    <div className="tablet-view tablet-view--overview" ref={viewRef}>
       <h1 className="tablet-title">Vandaag: {todayLabel}</h1>
       
       <div className="tablet-overview-grid">
@@ -298,7 +320,7 @@ export function TabletDashboard({
     , personCompletions[0])
 
     return (
-      <div className="tablet-view tablet-view--stats">
+      <div className="tablet-view tablet-view--stats" ref={viewRef}>
         <h1 className="tablet-title">📊 Deze week tot nu toe</h1>
         
         <div className="tablet-stats-grid">
@@ -335,7 +357,7 @@ export function TabletDashboard({
   }
 
   const renderQuote = () => (
-    <div className="tablet-view tablet-view--quote">
+    <div className="tablet-view tablet-view--quote" ref={viewRef}>
       <div className="tablet-quote-content">
         <div className="tablet-quote-emoji">💫</div>
         <div className="tablet-quote-text">
@@ -366,7 +388,13 @@ export function TabletDashboard({
 
   return (
     <div className="tablet-dashboard">
-      <div className="tablet-container" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+      <div
+        className="tablet-container"
+        ref={containerRef}
+        style={{ transform: scale < 1 ? `scale(${scale})` : undefined, transformOrigin: 'top center' }}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
         {currentView === 'overview' && renderOverview()}
         {currentView === 'person-0' && renderPersonView(0)}
         {currentView === 'person-1' && renderPersonView(1)}
