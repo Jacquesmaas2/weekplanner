@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@libsql/client-wasm": "^0.15.15",
     "dexie": "^4.2.1",
     "dexie-react-hooks": "^4.2.0",
     "react": "^19.2.0",

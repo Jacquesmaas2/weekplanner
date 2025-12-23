@@ -30,6 +30,9 @@ jobs:
         run: npm ci
 
       - name: Build project
+        env:
+          VITE_LIBSQL_URL: ${{ secrets.VITE_LIBSQL_URL }}
+          VITE_LIBSQL_TOKEN: ${{ secrets.VITE_LIBSQL_TOKEN }}
         run: npm run build
 
       - name: Upload Pages artifact

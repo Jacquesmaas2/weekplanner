@@ -1,0 +1,5 @@
+{
+  "scripts": {
+    "setup:turso": "powershell -ExecutionPolicy Bypass -File ./setup-turso.ps1"
+  }
+}

@@ -7,7 +7,8 @@ import { StatsPanel } from './components/StatsPanel'
 import { TabletDashboard } from './components/TabletDashboard'
 import { HighlightsPanel, type DaySummary, type WeeklySummary } from './components/HighlightsPanel'
 import { buildDefaultPersons, buildDefaultTasks } from './data/defaults'
-import * as storage from './storage/localStorage'
+import { getProvider } from './storage'
+import type { StorageProvider } from './storage/provider'
 import type { CompletionMap, Person, PersonTheme, Session, Task } from './types'
 import { createCompletionKey, mapToEntries, parseCompletionKey } from './utils/completion'
 import {
@@ -44,45 +45,52 @@ function App() {
   const [activePanel, setActivePanel] = useState<PanelKey>('planner')
   const [referenceDate, setReferenceDate] = useState(() => new Date())
   const [tabletMode, setTabletMode] = useState(false)
-  const [persons, setPersonsState] = useState<Person[]>(() => storage.getPersons(buildDefaultPersons()))
-  const [tasks, setTasksState] = useState<Task[]>(() => storage.getTasks(buildDefaultTasks()))
-  const [completions, setCompletionsState] = useState<CompletionMap>(() => storage.getCompletions({}))
-  const [weekTaskConfig, setWeekTaskConfigState] = useState<Record<string, string[]>>(() => 
-    storage.getWeekTaskConfig({})
-  )
-  const [session, setSessionState] = useState<Session | null>(() => storage.getSession(null))
-  const [adminCode, setAdminCodeState] = useState<string>(() => storage.getAdminCode('ouder'))
+  const [provider, setProvider] = useState<StorageProvider | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [persons, setPersonsState] = useState<Person[]>([])
+  const [tasks, setTasksState] = useState<Task[]>([])
+  const [completions, setCompletionsState] = useState<CompletionMap>({})
+  const [weekTaskConfig, setWeekTaskConfigState] = useState<Record<string, string[]>>({})
+  const [session, setSessionState] = useState<Session | null>(null)
+  const [adminCode, setAdminCodeState] = useState<string>('ouder')
   const [adminLoginError, setAdminLoginError] = useState<string | undefined>()
 
-  // Initialize storage
+  // Initialize provider and load data (migrates local data into SQLite if configured)
   useEffect(() => {
-    storage.initializeStorage()
+    const init = async () => {
+      try {
+        const p = await getProvider()
+        setProvider(p)
+        const [px, tx, cx, wx, sx, ax] = await Promise.all([
+          p.getPersons(buildDefaultPersons()),
+          p.getTasks(buildDefaultTasks()),
+          p.getCompletions({}),
+          p.getWeekTaskConfig({}),
+          p.getSession(null),
+          p.getAdminCode('ouder'),
+        ])
+        setPersonsState(px)
+        setTasksState(tx)
+        setCompletionsState(cx)
+        setWeekTaskConfigState(wx)
+        setSessionState(sx)
+        setAdminCodeState(ax)
+      } catch (error) {
+        console.error('Failed to initialize storage:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    void init()
   }, [])
 
-  // Sync state to localStorage
-  useEffect(() => {
-    storage.setPersons(persons)
-  }, [persons])
-
-  useEffect(() => {
-    storage.setTasks(tasks)
-  }, [tasks])
-
-  useEffect(() => {
-    storage.setCompletions(completions)
-  }, [completions])
-
-  useEffect(() => {
-    storage.setWeekTaskConfig(weekTaskConfig)
-  }, [weekTaskConfig])
-
-  useEffect(() => {
-    storage.setSession(session)
-  }, [session])
-
-  useEffect(() => {
-    storage.setAdminCode(adminCode)
-  }, [adminCode])
+  // Persist changes via provider when available
+  useEffect(() => { if (provider) void provider.setPersons(persons) }, [provider, persons])
+  useEffect(() => { if (provider) void provider.setTasks(tasks) }, [provider, tasks])
+  useEffect(() => { if (provider) void provider.setCompletions(completions) }, [provider, completions])
+  useEffect(() => { if (provider) void provider.setWeekTaskConfig(weekTaskConfig) }, [provider, weekTaskConfig])
+  useEffect(() => { if (provider) void provider.setSession(session) }, [provider, session])
+  useEffect(() => { if (provider) void provider.setAdminCode(adminCode) }, [provider, adminCode])
 
   // Wrapper functions to maintain same API
   const setPersons = (updater: Person[] | ((current: Person[]) => Person[])) => {
@@ -239,6 +247,17 @@ function App() {
       rate: aggregate.total > 0 ? aggregate.completed / aggregate.total : 0,
     }
   }, [dailySummaries])
+
+  // Show loading state while initializing
+  if (isLoading) {
+    return (
+      <div className="app-container">
+        <div className="loading-screen">
+          <p>Laden...</p>
+        </div>
+      </div>
+    )
+  }
 
   // Check if tablet mode is requested via URL
   const urlParams = new URLSearchParams(window.location.search)
