@@ -4,6 +4,7 @@ export interface Quote {
   text: string
   author: string
   source?: string
+  imageUrl?: string
 }
 
 export interface NewsItem {
@@ -39,10 +40,14 @@ export async function fetchMotivationalQuote(): Promise<Quote> {
     
     const data = await response.json()
     
+    // Add beautiful background from Unsplash (nature, inspiration)
+    const imageUrl = `https://source.unsplash.com/1920x1080/?nature,inspiration,peaceful&sig=${Date.now()}`
+    
     return {
       text: data.content,
       author: data.author,
       source: 'quotable.io',
+      imageUrl,
     }
   } catch (error) {
     console.warn('Failed to fetch quote from API, using fallback:', error)

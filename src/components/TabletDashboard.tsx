@@ -358,7 +358,10 @@ export function TabletDashboard({
 
   const renderQuote = () => (
     <div className="tablet-view tablet-view--quote" ref={viewRef}>
-      <div className="tablet-quote-content">
+      <div 
+        className="tablet-quote-content"
+        style={currentQuote.imageUrl ? { backgroundImage: `url(${currentQuote.imageUrl})` } : undefined}
+      >
         <div className="tablet-quote-emoji">💫</div>
         <div className="tablet-quote-text">
           {currentQuote.text}
